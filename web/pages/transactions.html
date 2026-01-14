@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Transaksi - Stock Pilot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="app-shell">
+    <div class="app-bg"></div>
+    <div class="app-layout">
+      <aside class="app-sidebar">
+        <div class="sidebar-brand">
+          <div class="logo">SP</div>
+          <div>
+            <div class="eyebrow">Inventory control</div>
+            <div class="font-display text-lg font-semibold">Stock Pilot</div>
+          </div>
+        </div>
+        <nav class="nav-links">
+          <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
+          <a class="nav-link" href="/products" data-page="products">Produk</a>
+          <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+          <a class="nav-link" href="/payables" data-page="payables">Modal</a>
+          <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+          <a class="nav-link" href="/users" data-page="users">Pengguna</a>
+          <a class="nav-link" href="/logs" data-page="logs">Log</a>
+        </nav>
+        <div class="card px-4 py-4">
+          <p class="eyebrow">Transaksi cepat</p>
+          <p>Catat barang masuk, terjual, atau rusak langsung dari web.</p>
+        </div>
+      </aside>
+
+      <div class="flex-1">
+        <header class="topbar">
+          <div class="topbar-inner">
+            <div class="flex items-center gap-3">
+              <button class="mobile-toggle" id="menu-toggle" type="button">Menu</button>
+              <div>
+                <div class="eyebrow">Aktivitas</div>
+                <div class="topbar-title">Transaksi</div>
+              </div>
+            </div>
+            <div class="topbar-actions">
+              <div class="control-group">
+                <select id="store-select" class="select select-compact" aria-label="Pilih toko"></select>
+              </div>
+              <div class="account">
+                <button
+                  class="account-toggle"
+                  id="account-toggle"
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                >
+                  <span class="account-avatar" id="user-avatar">A</span>
+                  <span class="account-meta">
+                    <span class="account-name" id="user-pill">admin</span>
+                    <span class="account-role" id="user-role">Admin</span>
+                  </span>
+                  <span class="account-caret" aria-hidden="true">&#9662;</span>
+                </button>
+                <div class="account-menu hidden" id="account-menu">
+                  <button class="account-link" id="theme-toggle" type="button">Dark</button>
+                  <button class="account-link" id="logout-btn" type="button">Logout</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div id="mobile-backdrop" class="mobile-backdrop hidden"></div>
+        <aside id="mobile-drawer" class="mobile-drawer">
+          <div class="flex items-center justify-between">
+            <div class="sidebar-brand">
+              <div class="logo">SP</div>
+              <div>
+                <div class="eyebrow">Inventory control</div>
+                <div class="font-display text-lg font-semibold">Stock Pilot</div>
+              </div>
+            </div>
+            <button class="ghost" id="mobile-close" type="button">Close</button>
+          </div>
+          <nav class="nav-links mt-6">
+            <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
+            <a class="nav-link" href="/products" data-page="products">Produk</a>
+            <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+            <a class="nav-link" href="/payables" data-page="payables">Modal</a>
+            <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+            <a class="nav-link" href="/users" data-page="users">Pengguna</a>
+            <a class="nav-link" href="/logs" data-page="logs">Log</a>
+          </nav>
+        </aside>
+
+        <main class="page">
+          <section class="page-header">
+            <div>
+              <h1>Catat transaksi stok</h1>
+              <p>Input stok masuk, terjual, atau rusak dari web dengan cepat.</p>
+            </div>
+            <div class="page-actions">
+              <button class="ghost" id="refresh-btn">Refresh</button>
+            </div>
+          </section>
+
+          <section class="grid gap-6 lg:grid-cols-[360px,1fr]">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Transaksi baru</h2>
+                  <p>Harga beli wajib untuk barang masuk.</p>
+                </div>
+                <div class="badge badge-accent">Input</div>
+              </div>
+              <div class="card-body">
+                <form id="transaction-form" class="form-stack">
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Jenis transaksi</span>
+                    <select class="select" id="type-select" name="type" required>
+                      <option value="IN">Barang masuk</option>
+                      <option value="OUT">Barang terjual</option>
+                      <option value="DAMAGE">Barang rusak</option>
+                    </select>
+                  </label>
+
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Pilih barang</span>
+                    <select class="select" id="product-select" name="product_id"></select>
+                  </label>
+
+                  <label id="new-product-field" class="space-y-2 hidden">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Nama barang baru</span>
+                    <input class="input" id="new-product-name" name="item" placeholder="Contoh: Minyak Goreng 1L" />
+                  </label>
+
+                  <div id="product-info" class="info-grid">
+                    <div>Pilih barang untuk melihat detail.</div>
+                  </div>
+
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Jumlah</span>
+                    <input class="input" name="qty" placeholder="10" required />
+                  </label>
+
+                  <div id="price-fields" class="form-grid">
+                    <label id="buy-field" class="space-y-2">
+                      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga beli</span>
+                      <input class="input" name="buy_price" placeholder="2000" />
+                    </label>
+                    <label id="sell-field" class="space-y-2">
+                      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga jual</span>
+                      <input class="input" name="sell_price" placeholder="3000" />
+                    </label>
+                  </div>
+
+                  <p id="price-hint" class="text-xs text-slate-500 dark:text-slate-400"></p>
+
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Catatan</span>
+                    <input class="input" name="note" placeholder="Contoh: promo, batch baru" />
+                  </label>
+
+                  <button class="primary" type="submit">Simpan transaksi</button>
+                </form>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Riwayat transaksi</h2>
+                  <p>Daftar transaksi terbaru dari toko aktif.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                  <input id="search-input" class="input" placeholder="Cari barang" />
+                  <select id="filter-type" class="select">
+                    <option value="">Semua</option>
+                    <option value="IN">Masuk</option>
+                    <option value="OUT">Terjual</option>
+                    <option value="DAMAGE">Rusak</option>
+                  </select>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="table-wrap">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <th>Waktu</th>
+                        <th>Tipe</th>
+                        <th>Barang</th>
+                        <th>Qty</th>
+                        <th>Harga</th>
+                        <th>Total</th>
+                        <th>Catatan</th>
+                      </tr>
+                    </thead>
+                    <tbody id="transaction-rows"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script type="module" src="/js/transactions.js"></script>
+  </body>
+</html>

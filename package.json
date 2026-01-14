@@ -1,0 +1,36 @@
+{
+  "name": "bot_wa_sheet",
+  "version": "1.0.0",
+  "description": "WhatsApp bot to append messages into Google Sheets",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "web": "node src/web.js",
+    "build:css": "tailwindcss -i ./web/css/tailwind.css -o ./web/css/styles.css",
+    "dev:css": "tailwindcss -i ./web/css/tailwind.css -o ./web/css/styles.css --watch"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.9",
+    "bcryptjs": "^3.0.3",
+    "connect-pg-simple": "^10.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "express-session": "^1.18.2",
+    "flowbite": "^4.0.1",
+    "googleapis": "^133.0.0",
+    "pg": "^8.16.3",
+    "pino": "^8.19.0",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.11",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17"
+  }
+}

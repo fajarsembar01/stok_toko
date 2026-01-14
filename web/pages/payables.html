@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Modal - Stock Pilot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="app-shell">
+    <div class="app-bg"></div>
+    <div class="app-layout">
+      <aside class="app-sidebar">
+        <div class="sidebar-brand">
+          <div class="logo">SP</div>
+          <div>
+            <div class="eyebrow">Inventory control</div>
+            <div class="font-display text-lg font-semibold">Stock Pilot</div>
+          </div>
+        </div>
+        <nav class="nav-links">
+          <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
+          <a class="nav-link" href="/products" data-page="products">Produk</a>
+          <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+          <a class="nav-link" href="/payables" data-page="payables">Modal</a>
+          <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+          <a class="nav-link" href="/users" data-page="users">Pengguna</a>
+          <a class="nav-link" href="/logs" data-page="logs">Log</a>
+        </nav>
+        <div class="card px-4 py-4">
+          <p class="eyebrow">Info modal</p>
+          <p>Saldo negatif berarti utang, saldo positif berarti kredit.</p>
+        </div>
+      </aside>
+
+      <div class="flex-1">
+        <header class="topbar">
+          <div class="topbar-inner">
+            <div class="flex items-center gap-3">
+              <button class="mobile-toggle" id="menu-toggle" type="button">Menu</button>
+              <div>
+                <div class="eyebrow">Keuangan</div>
+                <div class="topbar-title">Modal</div>
+              </div>
+            </div>
+            <div class="topbar-actions">
+              <div class="control-group">
+                <select id="store-select" class="select select-compact" aria-label="Pilih toko"></select>
+              </div>
+              <div class="account">
+                <button
+                  class="account-toggle"
+                  id="account-toggle"
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                >
+                  <span class="account-avatar" id="user-avatar">A</span>
+                  <span class="account-meta">
+                    <span class="account-name" id="user-pill">admin</span>
+                    <span class="account-role" id="user-role">Admin</span>
+                  </span>
+                  <span class="account-caret" aria-hidden="true">&#9662;</span>
+                </button>
+                <div class="account-menu hidden" id="account-menu">
+                  <button class="account-link" id="theme-toggle" type="button">Dark</button>
+                  <button class="account-link" id="logout-btn" type="button">Logout</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div id="mobile-backdrop" class="mobile-backdrop hidden"></div>
+        <aside id="mobile-drawer" class="mobile-drawer">
+          <div class="flex items-center justify-between">
+            <div class="sidebar-brand">
+              <div class="logo">SP</div>
+              <div>
+                <div class="eyebrow">Inventory control</div>
+                <div class="font-display text-lg font-semibold">Stock Pilot</div>
+              </div>
+            </div>
+            <button class="ghost" id="mobile-close" type="button">Close</button>
+          </div>
+          <nav class="nav-links mt-6">
+            <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
+            <a class="nav-link" href="/products" data-page="products">Produk</a>
+          <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+            <a class="nav-link" href="/payables" data-page="payables">Modal</a>
+            <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+            <a class="nav-link" href="/users" data-page="users">Pengguna</a>
+            <a class="nav-link" href="/logs" data-page="logs">Log</a>
+          </nav>
+        </aside>
+
+        <main class="page">
+          <section class="page-header">
+            <div>
+              <h1>Modal dan utang</h1>
+              <p>Bayar modal setelah barang terjual, dengan saldo kredit otomatis.</p>
+            </div>
+            <div class="page-actions">
+              <button class="ghost" id="refresh-btn">Refresh</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <div>
+                <h2>Ringkasan modal</h2>
+                <p>Monitor jumlah utang modal dan saldo kredit.</p>
+              </div>
+              <div class="badge badge-accent">Payables</div>
+            </div>
+            <div class="card-body grid gap-6 lg:grid-cols-[1.4fr,1fr]">
+              <div class="kpi-grid">
+                <article class="kpi-card">
+                  <p class="eyebrow">Total modal terjual</p>
+                  <h3 id="payable-total">Rp 0</h3>
+                </article>
+                <article class="kpi-card">
+                  <p class="eyebrow">Total dibayar</p>
+                  <h3 id="payable-paid">Rp 0</h3>
+                </article>
+                <article class="kpi-card">
+                  <p class="eyebrow">Saldo akhir</p>
+                  <h3 id="payable-balance">Rp 0</h3>
+                </article>
+              </div>
+              <form id="payment-form" class="form-stack">
+                <label class="space-y-2">
+                  <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Nominal bayar</span>
+                  <input class="input" name="amount" placeholder="50000" required />
+                </label>
+                <label class="space-y-2">
+                  <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Catatan</span>
+                  <input class="input" name="note" placeholder="Bayar modal harian" />
+                </label>
+                <button class="primary" type="submit">Bayar modal</button>
+              </form>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <div>
+                <h2>Rincian modal</h2>
+                <p>Detail utang per produk dan riwayat pembayaran.</p>
+              </div>
+            </div>
+            <div class="card-body grid gap-6 lg:grid-cols-2">
+              <div class="space-y-4">
+                <h3>Utang per produk</h3>
+                <div class="table-wrap">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <th>Barang</th>
+                        <th>Modal</th>
+                        <th>Terbayar</th>
+                        <th>Sisa</th>
+                      </tr>
+                    </thead>
+                    <tbody id="payable-rows"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="space-y-4">
+                <h3>Riwayat pembayaran</h3>
+                <div class="summary-box" id="payment-history"></div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script type="module" src="/js/payables.js"></script>
+  </body>
+</html>

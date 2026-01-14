@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Produk - Stock Pilot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="app-shell">
+    <div class="app-bg"></div>
+    <div class="app-layout">
+      <aside class="app-sidebar">
+        <div class="sidebar-brand">
+          <div class="logo">SP</div>
+          <div>
+            <div class="eyebrow">Inventory control</div>
+            <div class="font-display text-lg font-semibold">Stock Pilot</div>
+          </div>
+        </div>
+        <nav class="nav-links">
+          <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
+          <a class="nav-link" href="/products" data-page="products">Produk</a>
+          <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+          <a class="nav-link" href="/payables" data-page="payables">Modal</a>
+          <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+          <a class="nav-link" href="/users" data-page="users">Pengguna</a>
+          <a class="nav-link" href="/logs" data-page="logs">Log</a>
+        </nav>
+        <div class="card px-4 py-4">
+          <p class="eyebrow">Tips produk</p>
+          <p>Isi harga beli dan jual default agar input AI bisa otomatis.</p>
+        </div>
+      </aside>
+
+      <div class="flex-1">
+        <header class="topbar">
+          <div class="topbar-inner">
+            <div class="flex items-center gap-3">
+              <button class="mobile-toggle" id="menu-toggle" type="button">Menu</button>
+              <div>
+                <div class="eyebrow">Master data</div>
+                <div class="topbar-title">Produk</div>
+              </div>
+            </div>
+            <div class="topbar-actions">
+              <div class="control-group">
+                <select id="store-select" class="select select-compact" aria-label="Pilih toko"></select>
+              </div>
+              <div class="account">
+                <button
+                  class="account-toggle"
+                  id="account-toggle"
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                >
+                  <span class="account-avatar" id="user-avatar">A</span>
+                  <span class="account-meta">
+                    <span class="account-name" id="user-pill">admin</span>
+                    <span class="account-role" id="user-role">Admin</span>
+                  </span>
+                  <span class="account-caret" aria-hidden="true">&#9662;</span>
+                </button>
+                <div class="account-menu hidden" id="account-menu">
+                  <button class="account-link" id="theme-toggle" type="button">Dark</button>
+                  <button class="account-link" id="logout-btn" type="button">Logout</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div id="mobile-backdrop" class="mobile-backdrop hidden"></div>
+        <aside id="mobile-drawer" class="mobile-drawer">
+          <div class="flex items-center justify-between">
+            <div class="sidebar-brand">
+              <div class="logo">SP</div>
+              <div>
+                <div class="eyebrow">Inventory control</div>
+                <div class="font-display text-lg font-semibold">Stock Pilot</div>
+              </div>
+            </div>
+            <button class="ghost" id="mobile-close" type="button">Close</button>
+          </div>
+          <nav class="nav-links mt-6">
+            <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
+            <a class="nav-link" href="/products" data-page="products">Produk</a>
+          <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+            <a class="nav-link" href="/payables" data-page="payables">Modal</a>
+            <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+            <a class="nav-link" href="/users" data-page="users">Pengguna</a>
+            <a class="nav-link" href="/logs" data-page="logs">Log</a>
+          </nav>
+        </aside>
+
+        <main class="page">
+          <section class="page-header">
+            <div>
+              <h1>Kelola produk</h1>
+              <p>Atur harga default, status aktif, dan catatan barang.</p>
+            </div>
+            <div class="page-actions">
+              <button class="ghost" id="refresh-btn">Refresh</button>
+            </div>
+          </section>
+
+          <section class="grid gap-6 lg:grid-cols-[360px,1fr]">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Tambah barang</h2>
+                  <p>Harga jual default dipakai saat transaksi keluar.</p>
+                </div>
+                <div class="badge badge-accent">Create</div>
+              </div>
+              <div class="card-body">
+                <form id="create-form" class="form-stack">
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Nama barang</span>
+                    <input class="input" name="name" placeholder="Contoh: Tissu 250 pcs" required />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Satuan</span>
+                    <input class="input" name="unit" placeholder="pcs, box, kg" />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga beli default</span>
+                    <input class="input" name="default_buy_price" placeholder="2000" />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga jual default</span>
+                    <input class="input" name="default_sell_price" placeholder="3000" />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Modal</span>
+                    <select class="select" name="payable_mode">
+                      <option value="credit">Utang</option>
+                      <option value="cash">Lunas</option>
+                    </select>
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Catatan</span>
+                    <input class="input" name="note" placeholder="Supplier, kode rak, dll" />
+                  </label>
+                  <button class="primary" type="submit">Simpan barang</button>
+                </form>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Daftar barang</h2>
+                  <p>Klik baris untuk edit detail, harga, atau status aktif.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                  <input id="search-input" class="input" placeholder="Cari barang" />
+                  <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                    <input type="checkbox" id="toggle-inactive" />
+                    Tampilkan nonaktif
+                  </label>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="table-wrap">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <th>Barang</th>
+                        <th>Stok</th>
+                        <th>Harga beli</th>
+                        <th>Harga jual</th>
+                        <th>Revenue</th>
+                        <th>Profit</th>
+                        <th>Modal</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="product-rows"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <aside class="drawer" id="drawer">
+      <div class="drawer-header">
+        <div>
+          <p class="eyebrow">Detail barang</p>
+          <h3 id="drawer-title">Edit barang</h3>
+        </div>
+        <button class="ghost" id="close-drawer">Close</button>
+      </div>
+      <div class="drawer-summary" id="drawer-summary"></div>
+      <form id="edit-form" class="form-stack px-6 py-6">
+        <input type="hidden" name="id" />
+        <label class="space-y-2">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Nama barang</span>
+          <input class="input" name="name" required />
+        </label>
+        <label class="space-y-2">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Satuan</span>
+          <input class="input" name="unit" />
+        </label>
+        <label class="space-y-2">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga beli default</span>
+          <input class="input" name="default_buy_price" />
+        </label>
+        <label class="space-y-2">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga jual default</span>
+          <input class="input" name="default_sell_price" />
+        </label>
+        <label class="space-y-2">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Modal</span>
+          <select class="select" name="payable_mode">
+            <option value="credit">Utang</option>
+            <option value="cash">Lunas</option>
+          </select>
+        </label>
+        <label class="space-y-2">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Catatan</span>
+          <input class="input" name="note" />
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+          <input type="checkbox" name="is_active" />
+          Barang aktif
+        </label>
+        <div class="drawer-actions">
+          <button class="primary" type="submit">Update</button>
+          <button class="danger" type="button" id="deactivate-btn">Nonaktifkan</button>
+        </div>
+      </form>
+    </aside>
+
+    <div class="modal hidden" id="quick-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-action="close"></div>
+      <div class="modal-card card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Tambah stok</p>
+            <h2 id="quick-product-name">Barang</h2>
+          </div>
+          <button class="ghost" type="button" data-action="close">Close</button>
+        </div>
+        <div class="card-body space-y-4">
+          <div id="quick-product-meta" class="info-grid">
+            <div>Pilih barang untuk melihat detail.</div>
+          </div>
+          <form id="quick-form" class="form-stack">
+            <input type="hidden" name="product_id" />
+            <label class="space-y-2">
+              <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Jenis transaksi</span>
+              <select class="select" id="quick-type" name="type" required>
+                <option value="IN">Barang masuk</option>
+                <option value="OUT">Barang terjual</option>
+                <option value="DAMAGE">Barang rusak</option>
+              </select>
+            </label>
+            <label class="space-y-2">
+              <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Jumlah</span>
+              <input class="input" name="qty" placeholder="10" required />
+            </label>
+            <div id="quick-price-fields" class="form-grid">
+              <label id="quick-buy-field" class="space-y-2">
+                <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga beli</span>
+                <input class="input" name="buy_price" placeholder="2000" />
+              </label>
+              <label id="quick-sell-field" class="space-y-2">
+                <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga jual</span>
+                <input class="input" name="sell_price" placeholder="3000" />
+              </label>
+            </div>
+            <p id="quick-price-hint" class="text-xs text-slate-500 dark:text-slate-400"></p>
+            <label class="space-y-2">
+              <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Catatan</span>
+              <input class="input" name="note" placeholder="Contoh: batch baru" />
+            </label>
+            <button class="primary" type="submit">Simpan transaksi</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script type="module" src="/js/products.js"></script>
+  </body>
+</html>

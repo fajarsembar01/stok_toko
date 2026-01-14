@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pilih Toko - Stock Pilot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="app-shell">
+    <div class="app-bg"></div>
+    <div class="min-h-screen">
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div class="flex items-center gap-3">
+            <div class="logo">SP</div>
+            <div>
+              <div class="eyebrow">Inventory control</div>
+              <div class="topbar-title">Stock Pilot</div>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <div class="account">
+              <button
+                class="account-toggle"
+                id="account-toggle"
+                type="button"
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                <span class="account-avatar" id="user-avatar">A</span>
+                <span class="account-meta">
+                  <span class="account-name" id="user-pill">admin</span>
+                  <span class="account-role" id="user-role">Admin</span>
+                </span>
+                <span class="account-caret" aria-hidden="true">&#9662;</span>
+              </button>
+              <div class="account-menu hidden" id="account-menu">
+                <button class="account-link" id="theme-toggle" type="button">Dark</button>
+                <button class="account-link" id="logout-btn" type="button">Logout</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="page">
+        <section class="page-header">
+          <div>
+            <h1>Pilih toko aktif</h1>
+            <p>Tentukan toko yang akan kamu kelola sebelum masuk dashboard.</p>
+          </div>
+          <div class="page-actions">
+            <button class="ghost" id="refresh-btn">Refresh</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <div>
+              <h2>Daftar toko</h2>
+              <p>Pilih salah satu untuk memuat data dashboard.</p>
+            </div>
+            <div class="badge badge-accent">Access</div>
+          </div>
+          <div class="card-body">
+            <div class="product-grid" id="store-grid"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script type="module" src="/js/select-store.js"></script>
+  </body>
+</html>

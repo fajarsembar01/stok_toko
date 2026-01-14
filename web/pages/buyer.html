@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Belanja - Stock Pilot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="app-shell">
+    <div class="app-bg"></div>
+    <div class="min-h-screen">
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div class="flex items-center gap-3">
+            <div class="logo">SP</div>
+            <div>
+              <div class="eyebrow">Belanja cepat</div>
+              <div class="topbar-title">Stock Pilot</div>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost" id="theme-toggle" type="button">Dark</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="page">
+        <section class="page-header">
+          <div>
+            <h1>Belanja kebutuhan harian</h1>
+            <p>Pilih barang, isi alamat di Griya Permata Hijau, lalu kami kirimkan.</p>
+          </div>
+          <div class="page-actions">
+            <span class="badge" id="store-pill">Toko</span>
+            <span class="badge badge-accent">Ongkir Rp 1.000</span>
+            <span class="badge">Gratis ongkir min Rp 20.000</span>
+          </div>
+        </section>
+
+        <section class="grid gap-6 lg:grid-cols-[1.4fr,0.9fr]">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>Pilih barang</h2>
+                <p>Tambah jumlah sesuai kebutuhan.</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="product-grid" id="product-grid"></div>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <section class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Alamat pengiriman</h2>
+                  <p>Hanya untuk perumahan Griya Permata Hijau.</p>
+                </div>
+                <div class="badge badge-accent">Griya Permata Hijau</div>
+              </div>
+              <div class="card-body">
+                <form id="order-form" class="form-stack">
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Blok</span>
+                    <input class="input" name="block" placeholder="Contoh: A2" required />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Nomor rumah</span>
+                    <input class="input" name="house_number" placeholder="Contoh: 12" required />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Nomor WhatsApp</span>
+                    <input class="input" name="buyer_wa" placeholder="08xxxxxxxxxx" required />
+                  </label>
+                  <button class="primary" type="submit">Buat pesanan</button>
+                </form>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Ringkasan pesanan</h2>
+                  <p>Periksa kembali sebelum mengirim.</p>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="summary-box">
+                  <div class="summary-items" id="summary-items"></div>
+                  <div class="summary-row">
+                    <span>Subtotal</span>
+                    <strong id="summary-subtotal">Rp 0</strong>
+                  </div>
+                  <div class="summary-row">
+                    <span>Ongkir</span>
+                    <strong id="summary-shipping">Rp 0</strong>
+                  </div>
+                  <div class="summary-row total">
+                    <span>Total</span>
+                    <strong id="summary-total">Rp 0</strong>
+                  </div>
+                  <p class="summary-note" id="summary-note"></p>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script type="module" src="/js/buyer.js"></script>
+  </body>
+</html>

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pengguna - Stock Pilot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="app-shell">
+    <div class="app-bg"></div>
+    <div class="app-layout">
+      <aside class="app-sidebar">
+        <div class="sidebar-brand">
+          <div class="logo">SP</div>
+          <div>
+            <div class="eyebrow">Inventory control</div>
+            <div class="font-display text-lg font-semibold">Stock Pilot</div>
+          </div>
+        </div>
+        <nav class="nav-links">
+          <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
+          <a class="nav-link" href="/products" data-page="products">Produk</a>
+          <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+          <a class="nav-link" href="/payables" data-page="payables">Modal</a>
+          <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+          <a class="nav-link" href="/users" data-page="users">Pengguna</a>
+          <a class="nav-link" href="/logs" data-page="logs">Log</a>
+        </nav>
+        <div class="card px-4 py-4">
+          <p class="eyebrow">Akses tim</p>
+          <p>Bedakan admin dan staff agar kontrol data tetap aman.</p>
+        </div>
+      </aside>
+
+      <div class="flex-1">
+        <header class="topbar">
+          <div class="topbar-inner">
+            <div class="flex items-center gap-3">
+              <button class="mobile-toggle" id="menu-toggle" type="button">Menu</button>
+              <div>
+                <div class="eyebrow">Access</div>
+                <div class="topbar-title">Pengguna</div>
+              </div>
+            </div>
+            <div class="topbar-actions">
+              <div class="control-group">
+                <select id="store-select" class="select select-compact" aria-label="Pilih toko"></select>
+              </div>
+              <div class="account">
+                <button
+                  class="account-toggle"
+                  id="account-toggle"
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                >
+                  <span class="account-avatar" id="user-avatar">A</span>
+                  <span class="account-meta">
+                    <span class="account-name" id="user-pill">admin</span>
+                    <span class="account-role" id="user-role">Admin</span>
+                  </span>
+                  <span class="account-caret" aria-hidden="true">&#9662;</span>
+                </button>
+                <div class="account-menu hidden" id="account-menu">
+                  <button class="account-link" id="theme-toggle" type="button">Dark</button>
+                  <button class="account-link" id="logout-btn" type="button">Logout</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div id="mobile-backdrop" class="mobile-backdrop hidden"></div>
+        <aside id="mobile-drawer" class="mobile-drawer">
+          <div class="flex items-center justify-between">
+            <div class="sidebar-brand">
+              <div class="logo">SP</div>
+              <div>
+                <div class="eyebrow">Inventory control</div>
+                <div class="font-display text-lg font-semibold">Stock Pilot</div>
+              </div>
+            </div>
+            <button class="ghost" id="mobile-close" type="button">Close</button>
+          </div>
+          <nav class="nav-links mt-6">
+            <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
+            <a class="nav-link" href="/products" data-page="products">Produk</a>
+          <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+            <a class="nav-link" href="/payables" data-page="payables">Modal</a>
+            <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+            <a class="nav-link" href="/users" data-page="users">Pengguna</a>
+            <a class="nav-link" href="/logs" data-page="logs">Log</a>
+          </nav>
+        </aside>
+
+        <main class="page">
+          <section class="page-header">
+            <div>
+              <h1>Kelola pengguna</h1>
+              <p>Buat akun admin atau staff, lalu atur hak akses.</p>
+            </div>
+            <div class="page-actions">
+              <button class="ghost" id="refresh-btn">Refresh</button>
+            </div>
+          </section>
+
+          <section class="grid gap-6 lg:grid-cols-[360px,1fr]">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Tambah pengguna</h2>
+                  <p>Gunakan password kuat untuk akun baru.</p>
+                </div>
+                <div class="badge badge-accent">Create</div>
+              </div>
+              <div class="card-body">
+                <form id="create-form" class="form-stack">
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Username</span>
+                    <input class="input" name="username" placeholder="admin2" required />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Password</span>
+                    <input class="input" type="password" name="password" placeholder="password" required />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Role</span>
+                    <select class="select" name="role">
+                      <option value="admin">Admin</option>
+                      <option value="staff">Staff</option>
+                    </select>
+                  </label>
+                  <button class="primary" type="submit">Simpan user</button>
+                </form>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Daftar pengguna</h2>
+                  <p>Klik baris untuk ubah role atau status aktif.</p>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="table-wrap">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Terakhir login</th>
+                        <th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="user-rows"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <aside class="drawer" id="drawer">
+      <div class="drawer-header">
+        <div>
+          <p class="eyebrow">Detail pengguna</p>
+          <h3 id="drawer-title">Edit pengguna</h3>
+        </div>
+        <button class="ghost" id="close-drawer">Close</button>
+      </div>
+      <div class="drawer-summary" id="drawer-summary"></div>
+      <form id="edit-form" class="form-stack px-6 py-6">
+        <input type="hidden" name="id" />
+        <label class="space-y-2">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Username</span>
+          <input class="input" name="username" required />
+        </label>
+        <label class="space-y-2">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Role</span>
+          <select class="select" name="role">
+            <option value="admin">Admin</option>
+            <option value="staff">Staff</option>
+          </select>
+        </label>
+        <label class="space-y-2">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Password baru</span>
+          <input class="input" type="password" name="password" placeholder="Kosongkan jika tidak diubah" />
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+          <input type="checkbox" name="is_active" />
+          Akun aktif
+        </label>
+        <div class="drawer-actions">
+          <button class="primary" type="submit">Update</button>
+          <button class="danger" type="button" id="deactivate-btn">Nonaktifkan</button>
+        </div>
+      </form>
+    </aside>
+
+    <div class="toast" id="toast"></div>
+    <script type="module" src="/js/users.js"></script>
+  </body>
+</html>

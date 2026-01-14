@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard - Stock Pilot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="app-shell">
+    <div class="app-bg"></div>
+    <div class="app-layout">
+      <aside class="app-sidebar">
+        <div class="sidebar-brand">
+          <div class="logo">SP</div>
+          <div>
+            <div class="eyebrow">Inventory control</div>
+            <div class="font-display text-lg font-semibold">Stock Pilot</div>
+          </div>
+        </div>
+        <nav class="nav-links">
+          <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
+          <a class="nav-link" href="/products" data-page="products">Produk</a>
+          <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+          <a class="nav-link" href="/payables" data-page="payables">Modal</a>
+          <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+          <a class="nav-link" href="/users" data-page="users">Pengguna</a>
+          <a class="nav-link" href="/logs" data-page="logs">Log</a>
+        </nav>
+        <div class="card px-4 py-4">
+          <p class="eyebrow">Quick tips</p>
+          <p>Gunakan trigger toko untuk input AI dan lihat ringkasan stok setiap pagi.</p>
+        </div>
+      </aside>
+
+      <div class="flex-1">
+        <header class="topbar">
+          <div class="topbar-inner">
+            <div class="flex items-center gap-3">
+              <button class="mobile-toggle" id="menu-toggle" type="button">Menu</button>
+              <div>
+                <div class="eyebrow">Overview</div>
+                <div class="topbar-title">Dashboard</div>
+              </div>
+            </div>
+            <div class="topbar-actions">
+              <div class="control-group">
+                <select id="store-select" class="select select-compact" aria-label="Pilih toko"></select>
+              </div>
+              <div class="account">
+                <button
+                  class="account-toggle"
+                  id="account-toggle"
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                >
+                  <span class="account-avatar" id="user-avatar">A</span>
+                  <span class="account-meta">
+                    <span class="account-name" id="user-pill">admin</span>
+                    <span class="account-role" id="user-role">Admin</span>
+                  </span>
+                  <span class="account-caret" aria-hidden="true">&#9662;</span>
+                </button>
+                <div class="account-menu hidden" id="account-menu">
+                  <button class="account-link" id="theme-toggle" type="button">Dark</button>
+                  <button class="account-link" id="logout-btn" type="button">Logout</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div id="mobile-backdrop" class="mobile-backdrop hidden"></div>
+        <aside id="mobile-drawer" class="mobile-drawer">
+          <div class="flex items-center justify-between">
+            <div class="sidebar-brand">
+              <div class="logo">SP</div>
+              <div>
+                <div class="eyebrow">Inventory control</div>
+                <div class="font-display text-lg font-semibold">Stock Pilot</div>
+              </div>
+            </div>
+            <button class="ghost" id="mobile-close" type="button">Close</button>
+          </div>
+          <nav class="nav-links mt-6">
+            <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
+            <a class="nav-link" href="/products" data-page="products">Produk</a>
+          <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+            <a class="nav-link" href="/payables" data-page="payables">Modal</a>
+            <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+            <a class="nav-link" href="/users" data-page="users">Pengguna</a>
+            <a class="nav-link" href="/logs" data-page="logs">Log</a>
+          </nav>
+        </aside>
+
+        <main class="page">
+          <section class="page-header">
+            <div>
+              <h1>Ringkasan stok dan transaksi</h1>
+              <p>Monitor performa toko, laba, dan status modal dalam satu tampilan.</p>
+            </div>
+            <div class="page-actions">
+              <span class="status-pill" id="status-pill">DB ready</span>
+              <button class="ghost" id="refresh-btn">Refresh</button>
+            </div>
+          </section>
+
+          <section class="kpi-grid">
+            <article class="kpi-card">
+              <p class="eyebrow">Produk aktif</p>
+              <h3 id="stat-products">0</h3>
+            </article>
+            <article class="kpi-card">
+              <p class="eyebrow">Total stok</p>
+              <h3 id="stat-stock">0</h3>
+            </article>
+            <article class="kpi-card">
+              <p class="eyebrow">Revenue</p>
+              <h3 id="stat-revenue">Rp 0</h3>
+            </article>
+            <article class="kpi-card">
+              <p class="eyebrow">Profit</p>
+              <h3 id="stat-profit">Rp 0</h3>
+            </article>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <div>
+                <h2>Modal dan utang</h2>
+                <p>Saldo modal otomatis sesuai barang terjual.</p>
+              </div>
+              <a class="ghost" href="/payables">Lihat detail</a>
+            </div>
+            <div class="card-body">
+              <div class="kpi-grid">
+                <article class="kpi-card">
+                  <p class="eyebrow">Total modal terjual</p>
+                  <h3 id="payable-total">Rp 0</h3>
+                </article>
+                <article class="kpi-card">
+                  <p class="eyebrow">Total dibayar</p>
+                  <h3 id="payable-paid">Rp 0</h3>
+                </article>
+                <article class="kpi-card">
+                  <p class="eyebrow">Saldo akhir</p>
+                  <h3 id="payable-balance">Rp 0</h3>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <div>
+                <h2>Aktivitas terakhir</h2>
+                <p>Log perubahan terbaru pada data produk dan pembayaran.</p>
+              </div>
+              <a class="ghost" href="/logs">Buka log</a>
+            </div>
+            <div class="card-body">
+              <div class="table-wrap">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Waktu</th>
+                      <th>User</th>
+                      <th>Aksi</th>
+                      <th>Entitas</th>
+                      <th>ID</th>
+                    </tr>
+                  </thead>
+                  <tbody id="audit-rows"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script type="module" src="/js/dashboard.js"></script>
+  </body>
+</html>

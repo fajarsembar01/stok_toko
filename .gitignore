@@ -1,0 +1,6 @@
+node_modules/
+.env
+auth_info/
+*.log
+qr.png
+wa-bot-483708-0763830573a4.json

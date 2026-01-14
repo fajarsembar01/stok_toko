@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login - Stock Pilot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="app-shell">
+    <div class="app-bg"></div>
+    <div class="min-h-screen">
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div class="flex items-center gap-3">
+            <div class="logo">SP</div>
+            <div>
+              <div class="eyebrow">Inventory control</div>
+              <div class="topbar-title">Stock Pilot</div>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost" id="theme-toggle" type="button">Dark</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="grid min-h-[calc(100vh-96px)] gap-6 px-6 py-12 lg:grid-cols-[1.1fr,0.9fr] lg:px-16">
+        <section class="card flex flex-col justify-between">
+          <div class="card-body space-y-4">
+            <p class="eyebrow">Welcome back</p>
+            <h1>Atur stok dan modal toko dari satu dashboard.</h1>
+            <p>
+              Masuk untuk melihat performa toko, catat transaksi, dan kelola utang
+              modal otomatis.
+            </p>
+          </div>
+          <div class="card-body pt-0">
+            <div class="kpi-grid">
+              <div class="kpi-card">
+                <p class="eyebrow">AI Trigger</p>
+                <h3>Dewi / Dina</h3>
+              </div>
+              <div class="kpi-card">
+                <p class="eyebrow">Realtime</p>
+                <h3>WhatsApp + Web</h3>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card max-w-md w-full justify-self-center">
+          <div class="card-head">
+            <div>
+              <h2>Masuk ke dashboard</h2>
+              <p>Gunakan akun admin atau staff.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <form id="login-form" class="form-stack">
+              <label class="space-y-2">
+                <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Username</span>
+                <input class="input" name="username" placeholder="admin" required />
+              </label>
+              <label class="space-y-2">
+                <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Password</span>
+                <input class="input" type="password" name="password" placeholder="Password" required />
+              </label>
+              <button class="primary" type="submit">Login</button>
+              <p id="login-error" class="text-sm text-rose-500"></p>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/js/login.js"></script>
+  </body>
+</html>
