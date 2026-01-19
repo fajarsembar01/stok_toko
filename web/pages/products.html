@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/css/styles.css" />
@@ -27,22 +27,32 @@
           <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
           <a class="nav-link" href="/products" data-page="products">Produk</a>
           <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+          <a class="nav-link" href="/receipts" data-page="receipts">Struk</a>
           <a class="nav-link" href="/payables" data-page="payables">Modal</a>
           <a class="nav-link" href="/stores" data-page="stores">Toko</a>
           <a class="nav-link" href="/users" data-page="users">Pengguna</a>
           <a class="nav-link" href="/logs" data-page="logs">Log</a>
         </nav>
-        <div class="card px-4 py-4">
-          <p class="eyebrow">Tips produk</p>
-          <p>Isi harga beli dan jual default agar input AI bisa otomatis.</p>
-        </div>
       </aside>
 
       <div class="flex-1">
         <header class="topbar">
           <div class="topbar-inner">
             <div class="flex items-center gap-3">
-              <button class="mobile-toggle" id="menu-toggle" type="button">Menu</button>
+              <button
+                class="mobile-toggle"
+                id="menu-toggle"
+                type="button"
+                aria-label="Buka navigasi"
+                aria-expanded="false"
+              >
+                <span class="sr-only">Menu</span>
+                <span class="hamburger" aria-hidden="true">
+                  <span class="hamburger-line"></span>
+                  <span class="hamburger-line"></span>
+                  <span class="hamburger-line"></span>
+                </span>
+              </button>
               <div>
                 <div class="eyebrow">Master data</div>
                 <div class="topbar-title">Produk</div>
@@ -78,20 +88,19 @@
 
         <div id="mobile-backdrop" class="mobile-backdrop hidden"></div>
         <aside id="mobile-drawer" class="mobile-drawer">
-          <div class="flex items-center justify-between">
-            <div class="sidebar-brand">
-              <div class="logo">SP</div>
-              <div>
-                <div class="eyebrow">Inventory control</div>
-                <div class="font-display text-lg font-semibold">Stock Pilot</div>
-              </div>
+          <button class="drawer-close" id="mobile-close" type="button" aria-label="Tutup menu">&times;</button>
+          <div class="sidebar-brand">
+            <div class="logo">SP</div>
+            <div>
+              <div class="eyebrow">Inventory control</div>
+              <div class="font-display text-lg font-semibold">Stock Pilot</div>
             </div>
-            <button class="ghost" id="mobile-close" type="button">Close</button>
           </div>
           <nav class="nav-links mt-6">
             <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
             <a class="nav-link" href="/products" data-page="products">Produk</a>
-          <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+            <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+            <a class="nav-link" href="/receipts" data-page="receipts">Struk</a>
             <a class="nav-link" href="/payables" data-page="payables">Modal</a>
             <a class="nav-link" href="/stores" data-page="stores">Toko</a>
             <a class="nav-link" href="/users" data-page="users">Pengguna</a>
@@ -100,18 +109,8 @@
         </aside>
 
         <main class="page">
-          <section class="page-header">
-            <div>
-              <h1>Kelola produk</h1>
-              <p>Atur harga default, status aktif, dan catatan barang.</p>
-            </div>
-            <div class="page-actions">
-              <button class="ghost" id="refresh-btn">Refresh</button>
-            </div>
-          </section>
-
-          <section class="grid gap-6 lg:grid-cols-[360px,1fr]">
-            <div class="card">
+          <section class="products-grid form-hidden" id="products-grid">
+            <div class="card hidden" id="create-card">
               <div class="card-head">
                 <div>
                   <h2>Tambah barang</h2>
@@ -130,12 +129,73 @@
                     <input class="input" name="unit" placeholder="pcs, box, kg" />
                   </label>
                   <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Kategori</span>
+                    <select class="select" id="category-select" name="category">
+                      <option value="">Tanpa kategori</option>
+                    </select>
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Gambar</span>
+                    <input
+                      class="input"
+                      id="create-image-file"
+                      name="image_file"
+                      type="file"
+                      accept="image/*"
+                    />
+                    <div class="image-adjust hidden" id="create-image-adjust">
+                      <canvas
+                        class="image-canvas"
+                        id="create-image-canvas"
+                        width="160"
+                        height="160"
+                      ></canvas>
+                      <div class="image-controls">
+                        <label class="image-control">
+                          <span>Zoom</span>
+                          <input type="range" id="create-image-zoom" />
+                        </label>
+                        <label class="image-control">
+                          <span>X</span>
+                          <input type="range" id="create-image-x" />
+                        </label>
+                        <label class="image-control">
+                          <span>Y</span>
+                          <input type="range" id="create-image-y" />
+                        </label>
+                        <button
+                          class="ghost image-reset"
+                          id="create-image-reset"
+                          type="button"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+                  </label>
+                  <label class="space-y-2 hidden" id="category-input-wrap">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Kategori baru</span>
+                    <input class="input" id="category-input" placeholder="Contoh: Sembako" />
+                  </label>
+                  <label class="space-y-2">
                     <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga beli default</span>
-                    <input class="input" name="default_buy_price" placeholder="2000" />
+                    <input
+                      class="input"
+                      name="default_buy_price"
+                      placeholder="2000"
+                      inputmode="numeric"
+                      data-currency
+                    />
                   </label>
                   <label class="space-y-2">
                     <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga jual default</span>
-                    <input class="input" name="default_sell_price" placeholder="3000" />
+                    <input
+                      class="input"
+                      name="default_sell_price"
+                      placeholder="3000"
+                      inputmode="numeric"
+                      data-currency
+                    />
                   </label>
                   <label class="space-y-2">
                     <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Modal</span>
@@ -159,20 +219,46 @@
                   <h2>Daftar barang</h2>
                   <p>Klik baris untuk edit detail, harga, atau status aktif.</p>
                 </div>
-                <div class="flex flex-wrap items-center gap-3">
-                  <input id="search-input" class="input" placeholder="Cari barang" />
-                  <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                <div class="filter-bar">
+                  <button
+                    class="ghost h-10 w-10 p-0 text-lg"
+                    id="refresh-btn"
+                    type="button"
+                    aria-label="Refresh"
+                    title="Refresh"
+                  >
+                    &#x21bb;
+                  </button>
+                  <input
+                    id="search-input"
+                    class="input input-compact flex-1 min-w-0"
+                    placeholder="Cari"
+                  />
+                  <select
+                    id="filter-category"
+                    class="select select-compact-tight"
+                    aria-label="Kategori"
+                    title="Filter kategori"
+                  >
+                    <option value="">Kategori</option>
+                  </select>
+                  <label
+                    class="inline-flex shrink-0 items-center gap-2 text-xs text-slate-600 dark:text-slate-300"
+                    title="Tampilkan nonaktif"
+                  >
                     <input type="checkbox" id="toggle-inactive" />
-                    Tampilkan nonaktif
+                    Nonaktif
                   </label>
                 </div>
               </div>
               <div class="card-body">
-                <div class="table-wrap">
-                  <table class="table">
+                <div class="table-wrap table-wrap-compact">
+                  <table class="table table-compact">
                     <thead>
                       <tr>
+                        <th class="img-col">Img</th>
                         <th>Barang</th>
+                        <th>Kategori</th>
                         <th>Stok</th>
                         <th>Harga beli</th>
                         <th>Harga jual</th>
@@ -190,9 +276,22 @@
             </div>
           </section>
         </main>
+
+        <button
+          class="fab-toggle"
+          id="toggle-create"
+          type="button"
+          aria-controls="create-card"
+          aria-expanded="false"
+          aria-label="Tampilkan form"
+          title="Tampilkan form"
+        >
+          <span class="fab-icon" aria-hidden="true">+</span>
+        </button>
       </div>
     </div>
 
+    <div class="drawer-backdrop hidden" id="drawer-backdrop"></div>
     <aside class="drawer" id="drawer">
       <div class="drawer-header">
         <div>
@@ -202,7 +301,7 @@
         <button class="ghost" id="close-drawer">Close</button>
       </div>
       <div class="drawer-summary" id="drawer-summary"></div>
-      <form id="edit-form" class="form-stack px-6 py-6">
+      <form id="edit-form" class="form-stack drawer-form px-6 py-6">
         <input type="hidden" name="id" />
         <label class="space-y-2">
           <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Nama barang</span>
@@ -213,12 +312,78 @@
           <input class="input" name="unit" />
         </label>
         <label class="space-y-2">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Kategori</span>
+          <select class="select" id="edit-category-select" name="category">
+            <option value="">Tanpa kategori</option>
+          </select>
+        </label>
+        <label class="space-y-2">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Gambar</span>
+          <div class="flex items-center gap-2">
+            <input
+              class="input flex-1"
+              id="edit-image-file"
+              name="image_file"
+              type="file"
+              accept="image/*"
+            />
+            <button
+              class="ghost h-10 w-10 p-0"
+              id="clear-image-btn"
+              type="button"
+              aria-label="Hapus gambar"
+              title="Hapus gambar"
+            >
+              &times;
+            </button>
+          </div>
+          <img
+            class="image-preview hidden"
+            id="edit-image-preview"
+            alt="Preview gambar barang"
+            loading="lazy"
+          />
+          <div class="image-adjust hidden" id="edit-image-adjust">
+            <canvas
+              class="image-canvas"
+              id="edit-image-canvas"
+              width="160"
+              height="160"
+            ></canvas>
+            <div class="image-controls">
+              <label class="image-control">
+                <span>Zoom</span>
+                <input type="range" id="edit-image-zoom" />
+              </label>
+              <label class="image-control">
+                <span>X</span>
+                <input type="range" id="edit-image-x" />
+              </label>
+              <label class="image-control">
+                <span>Y</span>
+                <input type="range" id="edit-image-y" />
+              </label>
+              <button
+                class="ghost image-reset"
+                id="edit-image-reset"
+                type="button"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </label>
+        <label class="space-y-2 hidden" id="edit-category-input-wrap">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Kategori baru</span>
+          <input class="input" id="edit-category-input" />
+        </label>
+        <label class="space-y-2">
           <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga beli default</span>
-          <input class="input" name="default_buy_price" />
+          <input class="input" name="default_buy_price" inputmode="numeric" data-currency />
         </label>
         <label class="space-y-2">
           <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga jual default</span>
-          <input class="input" name="default_sell_price" />
+          <input class="input" name="default_sell_price" inputmode="numeric" data-currency />
         </label>
         <label class="space-y-2">
           <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Modal</span>
@@ -273,11 +438,11 @@
             <div id="quick-price-fields" class="form-grid">
               <label id="quick-buy-field" class="space-y-2">
                 <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga beli</span>
-                <input class="input" name="buy_price" placeholder="2000" />
+                <input class="input" name="buy_price" placeholder="2000" inputmode="numeric" data-currency />
               </label>
               <label id="quick-sell-field" class="space-y-2">
                 <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga jual</span>
-                <input class="input" name="sell_price" placeholder="3000" />
+                <input class="input" name="sell_price" placeholder="3000" inputmode="numeric" data-currency />
               </label>
             </div>
             <p id="quick-price-hint" class="text-xs text-slate-500 dark:text-slate-400"></p>

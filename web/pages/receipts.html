@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Struk - Stock Pilot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="app-shell">
+    <div class="app-bg"></div>
+    <div class="app-layout">
+      <aside class="app-sidebar">
+        <div class="sidebar-brand">
+          <div class="logo">SP</div>
+          <div>
+            <div class="eyebrow">Inventory control</div>
+            <div class="font-display text-lg font-semibold">Stock Pilot</div>
+          </div>
+        </div>
+        <nav class="nav-links">
+          <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
+          <a class="nav-link" href="/products" data-page="products">Produk</a>
+          <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+          <a class="nav-link" href="/receipts" data-page="receipts">Struk</a>
+          <a class="nav-link" href="/payables" data-page="payables">Modal</a>
+          <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+          <a class="nav-link" href="/users" data-page="users">Pengguna</a>
+          <a class="nav-link" href="/logs" data-page="logs">Log</a>
+        </nav>
+      </aside>
+
+      <div class="flex-1">
+        <header class="topbar print-hidden">
+          <div class="topbar-inner">
+            <div class="flex items-center gap-3">
+              <button
+                class="mobile-toggle"
+                id="menu-toggle"
+                type="button"
+                aria-label="Buka navigasi"
+                aria-expanded="false"
+              >
+                <span class="sr-only">Menu</span>
+                <span class="hamburger" aria-hidden="true">
+                  <span class="hamburger-line"></span>
+                  <span class="hamburger-line"></span>
+                  <span class="hamburger-line"></span>
+                </span>
+              </button>
+              <div>
+                <div class="eyebrow">Kasir</div>
+                <div class="topbar-title">Cetak struk</div>
+              </div>
+            </div>
+            <div class="topbar-actions">
+              <div class="control-group">
+                <select id="store-select" class="select select-compact" aria-label="Pilih toko"></select>
+              </div>
+              <div class="account">
+                <button
+                  class="account-toggle"
+                  id="account-toggle"
+                  type="button"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                >
+                  <span class="account-avatar" id="user-avatar">A</span>
+                  <span class="account-meta">
+                    <span class="account-name" id="user-pill">admin</span>
+                    <span class="account-role" id="user-role">Admin</span>
+                  </span>
+                  <span class="account-caret" aria-hidden="true">&#9662;</span>
+                </button>
+                <div class="account-menu hidden" id="account-menu">
+                  <button class="account-link" id="theme-toggle" type="button">Dark</button>
+                  <button class="account-link" id="logout-btn" type="button">Logout</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div id="mobile-backdrop" class="mobile-backdrop hidden"></div>
+        <aside id="mobile-drawer" class="mobile-drawer">
+          <button class="drawer-close" id="mobile-close" type="button" aria-label="Tutup menu">&times;</button>
+          <div class="sidebar-brand">
+            <div class="logo">SP</div>
+            <div>
+              <div class="eyebrow">Inventory control</div>
+              <div class="font-display text-lg font-semibold">Stock Pilot</div>
+            </div>
+          </div>
+          <nav class="nav-links mt-6">
+            <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
+            <a class="nav-link" href="/products" data-page="products">Produk</a>
+            <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+            <a class="nav-link" href="/receipts" data-page="receipts">Struk</a>
+            <a class="nav-link" href="/payables" data-page="payables">Modal</a>
+            <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+            <a class="nav-link" href="/users" data-page="users">Pengguna</a>
+            <a class="nav-link" href="/logs" data-page="logs">Log</a>
+          </nav>
+        </aside>
+
+        <main class="page">
+          <section class="page-header print-hidden">
+            <div>
+              <h1>Cetak struk</h1>
+              <p>Susun belanja, pilih metode bayar, lalu cetak struk.</p>
+            </div>
+            <div class="page-actions">
+              <button class="ghost" id="reset-btn" type="button">Reset</button>
+              <button class="primary" id="print-btn" type="button">Print</button>
+            </div>
+          </section>
+
+          <section class="receipt-grid">
+            <div class="card print-hidden">
+              <div class="card-head">
+                <div>
+                  <h2>Input belanja</h2>
+                  <p>Tambah item satu per satu.</p>
+                </div>
+                <div class="badge badge-accent">Kasir</div>
+              </div>
+              <div class="card-body space-y-6">
+                <form id="item-form" class="form-stack">
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Barang</span>
+                    <input
+                      class="input"
+                      id="item-product"
+                      list="item-product-list"
+                      placeholder="Cari barang"
+                      autocomplete="off"
+                      required
+                    />
+                    <datalist id="item-product-list"></datalist>
+                  </label>
+                  <div class="form-grid">
+                    <label class="space-y-2">
+                      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Qty</span>
+                      <input
+                        class="input"
+                        id="item-qty"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value="1"
+                        required
+                      />
+                    </label>
+                    <label class="space-y-2">
+                      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga</span>
+                      <input
+                        class="input"
+                        id="item-price"
+                        type="text"
+                        min="0"
+                        step="100"
+                        placeholder="0"
+                        inputmode="numeric"
+                        data-currency
+                        required
+                      />
+                    </label>
+                  </div>
+                  <button class="primary" type="submit">Tambah</button>
+                </form>
+
+                <div class="table-wrap table-wrap-compact">
+                  <table class="table table-compact">
+                    <thead>
+                      <tr>
+                        <th>Barang</th>
+                        <th>Qty</th>
+                        <th>Harga</th>
+                        <th>Total</th>
+                        <th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="item-rows"></tbody>
+                  </table>
+                </div>
+
+                <div class="summary-box">
+                  <div class="summary-row total">
+                    <span>Total</span>
+                    <span id="summary-total">Rp 0</span>
+                  </div>
+                </div>
+
+                <div class="form-stack">
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Metode bayar</span>
+                    <select class="select" id="payment-method">
+                      <option value="cash">Cash</option>
+                      <option value="transfer">Transfer bank</option>
+                      <option value="qris">QRIS</option>
+                    </select>
+                  </label>
+                  <div class="payment-helper" id="payment-helper">
+                    <div class="payment-helper-title" id="helper-title">Cash</div>
+                    <div class="payment-helper-text" id="helper-text">Siapkan kembalian.</div>
+                    <div class="payment-helper-cash" id="cash-helper">
+                      <label class="space-y-2">
+                        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400"
+                          >Uang diterima</span
+                        >
+                        <input
+                          class="input input-compact"
+                          id="cash-received"
+                          type="text"
+                          min="0"
+                          step="100"
+                          placeholder="0"
+                          inputmode="numeric"
+                          data-currency
+                        />
+                      </label>
+                      <div class="text-xs text-slate-500 dark:text-slate-400">
+                        Kembalian: <span id="cash-change">Rp 0</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="summary-box space-y-3">
+                  <p class="eyebrow">Info pembayaran</p>
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <label class="space-y-2">
+                      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Bank</span>
+                      <input class="input" id="helper-bank-name" placeholder="BCA" />
+                    </label>
+                    <label class="space-y-2">
+                      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">No. rekening</span>
+                      <input class="input" id="helper-bank-account" placeholder="1234567890" />
+                    </label>
+                    <label class="space-y-2">
+                      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Atas nama</span>
+                      <input class="input" id="helper-bank-holder" placeholder="Nama toko" />
+                    </label>
+                    <label class="space-y-2">
+                      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">QRIS</span>
+                      <input class="input" id="helper-qris-label" placeholder="QRIS toko" />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head print-hidden">
+                <div>
+                  <h2>Preview struk</h2>
+                  <p>Siap untuk dicetak.</p>
+                </div>
+                <div class="badge badge-accent">Preview</div>
+              </div>
+              <div class="card-body">
+                <div class="receipt-sheet print-area" id="receipt-preview">
+                  <div class="receipt-header">
+                    <div class="receipt-title" id="receipt-store">Toko</div>
+                    <div class="receipt-meta" id="receipt-date">-</div>
+                    <div class="receipt-meta" id="receipt-id">-</div>
+                  </div>
+                  <div class="receipt-divider"></div>
+                  <div id="receipt-items" class="receipt-items"></div>
+                  <div class="receipt-divider"></div>
+                  <div class="receipt-line receipt-total">
+                    <span>Total</span>
+                    <strong id="receipt-total">Rp 0</strong>
+                  </div>
+                  <div class="receipt-divider"></div>
+                  <div class="receipt-meta" id="receipt-payment">Metode: -</div>
+                  <div class="receipt-meta" id="receipt-helper">Info pembayaran.</div>
+                  <div class="receipt-footer">Terima kasih.</div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script type="module" src="/js/receipts.js"></script>
+  </body>
+</html>

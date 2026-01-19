@@ -100,6 +100,8 @@ async function ensureDatabase(pool) {
       name_key text NOT NULL,
       store_id bigint,
       unit text,
+      category text,
+      image_url text,
       default_buy_price numeric,
       default_sell_price numeric,
       last_buy_price numeric,
@@ -135,6 +137,8 @@ async function ensureDatabase(pool) {
     ALTER TABLE ${PRODUCTS_TABLE}
       ADD COLUMN IF NOT EXISTS store_id bigint,
       ADD COLUMN IF NOT EXISTS unit text,
+      ADD COLUMN IF NOT EXISTS category text,
+      ADD COLUMN IF NOT EXISTS image_url text,
       ADD COLUMN IF NOT EXISTS default_buy_price numeric,
       ADD COLUMN IF NOT EXISTS default_sell_price numeric,
       ADD COLUMN IF NOT EXISTS last_buy_price numeric,

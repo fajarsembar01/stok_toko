@@ -52,28 +52,68 @@ function initMobileNav() {
   const drawer = document.getElementById('mobile-drawer');
   const backdrop = document.getElementById('mobile-backdrop');
   const closeBtn = document.getElementById('mobile-close');
+  const layout = document.querySelector('.app-layout');
   if (!toggle || !drawer || !backdrop) return;
 
-  const open = () => {
-    drawer.classList.add('open');
-    backdrop.classList.remove('hidden');
+  const desktopQuery = window.matchMedia('(min-width: 1024px)');
+
+  toggle.setAttribute('aria-controls', 'mobile-drawer');
+
+  const setToggleState = (open) => {
+    toggle.classList.toggle('open', open);
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggle.setAttribute('aria-label', open ? 'Tutup navigasi' : 'Buka navigasi');
+    toggle.setAttribute('title', open ? 'Tutup navigasi' : 'Buka navigasi');
   };
 
-  const close = () => {
-    drawer.classList.remove('open');
-    backdrop.classList.add('hidden');
+  const setMobileOpen = (open) => {
+    drawer.classList.toggle('open', open);
+    backdrop.classList.toggle('hidden', !open);
+    setToggleState(open);
   };
 
-  toggle.addEventListener('click', () => {
-    if (drawer.classList.contains('open')) {
-      close();
+  const setDesktopOpen = (open) => {
+    if (layout) {
+      layout.classList.toggle('nav-open', open);
+    }
+    setToggleState(open);
+  };
+
+  const toggleNav = () => {
+    if (desktopQuery.matches) {
+      const isOpen = layout?.classList.contains('nav-open');
+      setDesktopOpen(!isOpen);
     } else {
-      open();
+      setMobileOpen(!drawer.classList.contains('open'));
+    }
+  };
+
+  const handleViewportChange = () => {
+    if (desktopQuery.matches) {
+      setMobileOpen(false);
+      setDesktopOpen(false);
+    } else {
+      setDesktopOpen(false);
+      setToggleState(drawer.classList.contains('open'));
+    }
+  };
+
+  toggle.addEventListener('click', toggleNav);
+  backdrop.addEventListener('click', () => setMobileOpen(false));
+  if (closeBtn) closeBtn.addEventListener('click', () => setMobileOpen(false));
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    if (desktopQuery.matches) {
+      if (layout?.classList.contains('nav-open')) {
+        setDesktopOpen(false);
+      }
+    } else if (drawer.classList.contains('open')) {
+      setMobileOpen(false);
     }
   });
 
-  backdrop.addEventListener('click', close);
-  if (closeBtn) closeBtn.addEventListener('click', close);
+  handleViewportChange();
+  desktopQuery.addEventListener('change', handleViewportChange);
 }
 
 function initAccountMenu() {
@@ -154,8 +194,35 @@ export function escapeHtml(value) {
 
 export function toNumber(value) {
   if (value === null || value === undefined) return null;
-  const num = Number(value);
-  return Number.isNaN(num) ? null : num;
+  if (typeof value === 'number') {
+    return Number.isNaN(value) ? null : value;
+  }
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const cleaned = raw.replace(/[^0-9,.-]/g, '');
+  if (!cleaned || cleaned === '-' || cleaned === ',' || cleaned === '.') return null;
+
+  const negative = cleaned.startsWith('-') || cleaned.endsWith('-');
+  const unsigned = cleaned.replace(/-/g, '');
+  const hasSeparator = /[.,]/.test(unsigned);
+
+  let normalized = unsigned;
+  if (hasSeparator) {
+    const lastDot = unsigned.lastIndexOf('.');
+    const lastComma = unsigned.lastIndexOf(',');
+    const lastSep = Math.max(lastDot, lastComma);
+    const decimals = unsigned.slice(lastSep + 1);
+    if (decimals.length > 0 && decimals.length <= 2) {
+      const integerPart = unsigned.slice(0, lastSep).replace(/[.,]/g, '');
+      normalized = `${integerPart}.${decimals}`;
+    } else {
+      normalized = unsigned.replace(/[.,]/g, '');
+    }
+  }
+
+  const num = Number(normalized);
+  if (Number.isNaN(num)) return null;
+  return negative ? -Math.abs(num) : num;
 }
 
 export function formatCurrency(value) {
@@ -176,6 +243,41 @@ export function formatNumber(value) {
   const num = toNumber(value);
   if (num === null) return '0';
   return formatter.format(num);
+}
+
+export function formatCurrencyInputValue(input) {
+  if (!(input instanceof HTMLInputElement)) return;
+  const num = toNumber(input.value);
+  if (num === null) {
+    input.value = '';
+    return;
+  }
+  input.value = rupiah.format(num);
+}
+
+export function initCurrencyInputs(root = document) {
+  const inputs = root.querySelectorAll('input[data-currency]');
+  inputs.forEach((input) => {
+    if (!(input instanceof HTMLInputElement)) return;
+    if (input.dataset.currencyBound === 'true') {
+      formatCurrencyInputValue(input);
+      return;
+    }
+    input.dataset.currencyBound = 'true';
+    input.addEventListener('input', () => {
+      const num = toNumber(input.value);
+      if (num === null) {
+        input.value = '';
+        return;
+      }
+      input.value = rupiah.format(num);
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+    input.addEventListener('blur', () => {
+      formatCurrencyInputValue(input);
+    });
+    formatCurrencyInputValue(input);
+  });
 }
 
 export async function fetchMe() {
@@ -213,18 +315,40 @@ export async function fetchMe() {
   }
 }
 
+function normalizeStoreId(value) {
+  const id = Number(value);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+function getStoredStoreId() {
+  try {
+    return normalizeStoreId(window.localStorage.getItem(STORE_KEY));
+  } catch (err) {
+    return null;
+  }
+}
+
+function getStoreSelectId() {
+  const select = document.getElementById('store-select');
+  if (!select) return null;
+  return normalizeStoreId(select.value);
+}
+
 export function getActiveStoreId() {
-  const stored = window.localStorage.getItem(STORE_KEY);
-  const id = Number(stored);
-  return Number.isFinite(id) ? id : null;
+  return getStoreSelectId() || getStoredStoreId();
 }
 
 export function setActiveStoreId(value) {
-  if (!value) return;
-  const current = getActiveStoreId();
-  if (current === value) return;
-  window.localStorage.setItem(STORE_KEY, String(value));
-  window.dispatchEvent(new CustomEvent('store:change', { detail: { storeId: value } }));
+  const next = normalizeStoreId(value);
+  if (!next) return;
+  const current = getStoredStoreId();
+  if (current === next) return;
+  try {
+    window.localStorage.setItem(STORE_KEY, String(next));
+  } catch (err) {
+    // ignore storage errors
+  }
+  window.dispatchEvent(new CustomEvent('store:change', { detail: { storeId: next } }));
 }
 
 async function initStoreSelector() {
@@ -252,22 +376,36 @@ async function initStoreSelector() {
       )
       .join('');
 
-    const activeId = Number(active?.store?.id);
-    const stored = getActiveStoreId();
-    const fallback = stores[0]?.id;
-    const selected = stores.some((store) => store.id === activeId)
+    const activeId = normalizeStoreId(active?.store?.id);
+    const stored = getStoredStoreId();
+    const fallback = normalizeStoreId(stores[0]?.id);
+    const hasStore = (value) =>
+      value != null &&
+      stores.some((store) => normalizeStoreId(store.id) === value);
+    const selected = hasStore(activeId)
       ? activeId
-      : stores.some((store) => store.id === stored)
+      : hasStore(stored)
         ? stored
         : fallback;
     if (selected) {
       select.value = String(selected);
       setActiveStoreId(selected);
+      if (selected !== activeId) {
+        try {
+          await fetchJson('/api/store/active', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ store_id: selected })
+          });
+        } catch (err) {
+          // ignore
+        }
+      }
     }
 
     select.onchange = async () => {
-      const next = Number(select.value);
-      if (Number.isFinite(next)) {
+      const next = normalizeStoreId(select.value);
+      if (next) {
         try {
           await fetchJson('/api/store/active', {
             method: 'POST',
@@ -312,6 +450,7 @@ export async function initNav(activePage) {
   initThemeToggle();
   initMobileNav();
   initAccountMenu();
+  initCurrencyInputs();
   await initStoreSelector();
   fetchMe();
 }

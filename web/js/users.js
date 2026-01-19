@@ -9,6 +9,7 @@ const userRows = document.getElementById('user-rows');
 const refreshBtn = document.getElementById('refresh-btn');
 const createForm = document.getElementById('create-form');
 const drawer = document.getElementById('drawer');
+const drawerBackdrop = document.getElementById('drawer-backdrop');
 const drawerTitle = document.getElementById('drawer-title');
 const drawerSummary = document.getElementById('drawer-summary');
 const closeDrawerBtn = document.getElementById('close-drawer');
@@ -19,6 +20,18 @@ const state = {
   users: [],
   selected: null
 };
+
+function openDrawer() {
+  if (!drawer) return;
+  drawer.classList.add('open');
+  if (drawerBackdrop) drawerBackdrop.classList.remove('hidden');
+}
+
+function closeDrawer() {
+  if (!drawer) return;
+  drawer.classList.remove('open');
+  if (drawerBackdrop) drawerBackdrop.classList.add('hidden');
+}
 
 function formatDate(value) {
   const date = new Date(value);
@@ -68,7 +81,7 @@ function renderDrawer(user) {
   editForm.elements.is_active.checked = Boolean(user.is_active);
 
   deactivateBtn.textContent = user.is_active ? 'Nonaktifkan' : 'Aktifkan';
-  drawer.classList.add('open');
+  openDrawer();
 }
 
 async function fetchUsers() {
@@ -96,8 +109,12 @@ userRows.addEventListener('click', (event) => {
 });
 
 closeDrawerBtn.addEventListener('click', () => {
-  drawer.classList.remove('open');
+  closeDrawer();
 });
+
+if (drawerBackdrop) {
+  drawerBackdrop.addEventListener('click', closeDrawer);
+}
 
 if (refreshBtn) {
   refreshBtn.addEventListener('click', fetchUsers);
@@ -147,7 +164,7 @@ editForm.addEventListener('submit', async (event) => {
     if (!res) return;
 
     showToast('User diperbarui.');
-    drawer.classList.remove('open');
+    closeDrawer();
     fetchUsers();
   } catch (err) {
     if (err.message === 'duplicate_username') {
@@ -178,7 +195,7 @@ deactivateBtn.addEventListener('click', async () => {
     if (!res) return;
 
     showToast(user.is_active ? 'User dinonaktifkan.' : 'User diaktifkan.');
-    drawer.classList.remove('open');
+    closeDrawer();
     fetchUsers();
   } catch (err) {
     if (err.message === 'cannot_disable_self') {

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/css/styles.css" />
@@ -27,22 +27,32 @@
           <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
           <a class="nav-link" href="/products" data-page="products">Produk</a>
           <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+          <a class="nav-link" href="/receipts" data-page="receipts">Struk</a>
           <a class="nav-link" href="/payables" data-page="payables">Modal</a>
           <a class="nav-link" href="/stores" data-page="stores">Toko</a>
           <a class="nav-link" href="/users" data-page="users">Pengguna</a>
           <a class="nav-link" href="/logs" data-page="logs">Log</a>
         </nav>
-        <div class="card px-4 py-4">
-          <p class="eyebrow">Multi toko</p>
-          <p>Setiap toko punya trigger WA dan katalog sendiri.</p>
-        </div>
       </aside>
 
       <div class="flex-1">
         <header class="topbar">
           <div class="topbar-inner">
             <div class="flex items-center gap-3">
-              <button class="mobile-toggle" id="menu-toggle" type="button">Menu</button>
+              <button
+                class="mobile-toggle"
+                id="menu-toggle"
+                type="button"
+                aria-label="Buka navigasi"
+                aria-expanded="false"
+              >
+                <span class="sr-only">Menu</span>
+                <span class="hamburger" aria-hidden="true">
+                  <span class="hamburger-line"></span>
+                  <span class="hamburger-line"></span>
+                  <span class="hamburger-line"></span>
+                </span>
+              </button>
               <div>
                 <div class="eyebrow">Master data</div>
                 <div class="topbar-title">Toko</div>
@@ -78,20 +88,19 @@
 
         <div id="mobile-backdrop" class="mobile-backdrop hidden"></div>
         <aside id="mobile-drawer" class="mobile-drawer">
-          <div class="flex items-center justify-between">
-            <div class="sidebar-brand">
-              <div class="logo">SP</div>
-              <div>
-                <div class="eyebrow">Inventory control</div>
-                <div class="font-display text-lg font-semibold">Stock Pilot</div>
-              </div>
+          <button class="drawer-close" id="mobile-close" type="button" aria-label="Tutup menu">&times;</button>
+          <div class="sidebar-brand">
+            <div class="logo">SP</div>
+            <div>
+              <div class="eyebrow">Inventory control</div>
+              <div class="font-display text-lg font-semibold">Stock Pilot</div>
             </div>
-            <button class="ghost" id="mobile-close" type="button">Close</button>
           </div>
           <nav class="nav-links mt-6">
             <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
             <a class="nav-link" href="/products" data-page="products">Produk</a>
-          <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+            <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+            <a class="nav-link" href="/receipts" data-page="receipts">Struk</a>
             <a class="nav-link" href="/payables" data-page="payables">Modal</a>
             <a class="nav-link" href="/stores" data-page="stores">Toko</a>
             <a class="nav-link" href="/users" data-page="users">Pengguna</a>
@@ -176,6 +185,7 @@
       </div>
     </div>
 
+    <div class="drawer-backdrop hidden" id="drawer-backdrop"></div>
     <aside class="drawer" id="drawer">
       <div class="drawer-header">
         <div>
@@ -185,7 +195,7 @@
         <button class="ghost" id="close-drawer">Close</button>
       </div>
       <div class="drawer-summary" id="drawer-summary"></div>
-      <form id="edit-form" class="form-stack px-6 py-6">
+      <form id="edit-form" class="form-stack drawer-form px-6 py-6">
         <input type="hidden" name="id" />
         <label class="space-y-2">
           <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Nama toko</span>

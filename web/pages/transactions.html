@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/css/styles.css" />
@@ -27,22 +27,32 @@
           <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
           <a class="nav-link" href="/products" data-page="products">Produk</a>
           <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+          <a class="nav-link" href="/receipts" data-page="receipts">Struk</a>
           <a class="nav-link" href="/payables" data-page="payables">Modal</a>
           <a class="nav-link" href="/stores" data-page="stores">Toko</a>
           <a class="nav-link" href="/users" data-page="users">Pengguna</a>
           <a class="nav-link" href="/logs" data-page="logs">Log</a>
         </nav>
-        <div class="card px-4 py-4">
-          <p class="eyebrow">Transaksi cepat</p>
-          <p>Catat barang masuk, terjual, atau rusak langsung dari web.</p>
-        </div>
       </aside>
 
       <div class="flex-1">
         <header class="topbar">
           <div class="topbar-inner">
             <div class="flex items-center gap-3">
-              <button class="mobile-toggle" id="menu-toggle" type="button">Menu</button>
+              <button
+                class="mobile-toggle"
+                id="menu-toggle"
+                type="button"
+                aria-label="Buka navigasi"
+                aria-expanded="false"
+              >
+                <span class="sr-only">Menu</span>
+                <span class="hamburger" aria-hidden="true">
+                  <span class="hamburger-line"></span>
+                  <span class="hamburger-line"></span>
+                  <span class="hamburger-line"></span>
+                </span>
+              </button>
               <div>
                 <div class="eyebrow">Aktivitas</div>
                 <div class="topbar-title">Transaksi</div>
@@ -78,20 +88,19 @@
 
         <div id="mobile-backdrop" class="mobile-backdrop hidden"></div>
         <aside id="mobile-drawer" class="mobile-drawer">
-          <div class="flex items-center justify-between">
-            <div class="sidebar-brand">
-              <div class="logo">SP</div>
-              <div>
-                <div class="eyebrow">Inventory control</div>
-                <div class="font-display text-lg font-semibold">Stock Pilot</div>
-              </div>
+          <button class="drawer-close" id="mobile-close" type="button" aria-label="Tutup menu">&times;</button>
+          <div class="sidebar-brand">
+            <div class="logo">SP</div>
+            <div>
+              <div class="eyebrow">Inventory control</div>
+              <div class="font-display text-lg font-semibold">Stock Pilot</div>
             </div>
-            <button class="ghost" id="mobile-close" type="button">Close</button>
           </div>
           <nav class="nav-links mt-6">
             <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
             <a class="nav-link" href="/products" data-page="products">Produk</a>
             <a class="nav-link" href="/transactions" data-page="transactions">Transaksi</a>
+            <a class="nav-link" href="/receipts" data-page="receipts">Struk</a>
             <a class="nav-link" href="/payables" data-page="payables">Modal</a>
             <a class="nav-link" href="/stores" data-page="stores">Toko</a>
             <a class="nav-link" href="/users" data-page="users">Pengguna</a>
@@ -100,18 +109,8 @@
         </aside>
 
         <main class="page">
-          <section class="page-header">
-            <div>
-              <h1>Catat transaksi stok</h1>
-              <p>Input stok masuk, terjual, atau rusak dari web dengan cepat.</p>
-            </div>
-            <div class="page-actions">
-              <button class="ghost" id="refresh-btn">Refresh</button>
-            </div>
-          </section>
-
-          <section class="grid gap-6 lg:grid-cols-[360px,1fr]">
-            <div class="card">
+          <section class="transactions-grid form-hidden" id="transactions-grid">
+            <div class="card hidden" id="transaction-card">
               <div class="card-head">
                 <div>
                   <h2>Transaksi baru</h2>
@@ -150,14 +149,14 @@
                   </label>
 
                   <div id="price-fields" class="form-grid">
-                    <label id="buy-field" class="space-y-2">
-                      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga beli</span>
-                      <input class="input" name="buy_price" placeholder="2000" />
-                    </label>
-                    <label id="sell-field" class="space-y-2">
-                      <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga jual</span>
-                      <input class="input" name="sell_price" placeholder="3000" />
-                    </label>
+                  <label id="buy-field" class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga beli</span>
+                    <input class="input" name="buy_price" placeholder="2000" inputmode="numeric" data-currency />
+                  </label>
+                  <label id="sell-field" class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga jual</span>
+                    <input class="input" name="sell_price" placeholder="3000" inputmode="numeric" data-currency />
+                  </label>
                   </div>
 
                   <p id="price-hint" class="text-xs text-slate-500 dark:text-slate-400"></p>
@@ -176,14 +175,23 @@
               <div class="card-head">
                 <div>
                   <h2>Riwayat transaksi</h2>
-                  <p>Daftar transaksi terbaru dari toko aktif.</p>
+                  <p>Transaksi terbaru toko aktif.</p>
                 </div>
-                <div class="flex flex-wrap items-center gap-3">
-                  <input id="search-input" class="input" placeholder="Cari barang" />
-                  <select id="filter-type" class="select">
+                <div class="filter-bar">
+                  <button
+                    class="ghost h-10 w-10 p-0 text-lg"
+                    id="refresh-btn"
+                    type="button"
+                    aria-label="Refresh"
+                    title="Refresh"
+                  >
+                    &#x21bb;
+                  </button>
+                  <input id="search-input" class="input input-compact w-44" placeholder="Cari" />
+                  <select id="filter-type" class="select select-compact-tight" aria-label="Tipe" title="Tipe">
                     <option value="">Semua</option>
                     <option value="IN">Masuk</option>
-                    <option value="OUT">Terjual</option>
+                    <option value="OUT">Jual</option>
                     <option value="DAMAGE">Rusak</option>
                   </select>
                 </div>
@@ -209,6 +217,18 @@
             </div>
           </section>
         </main>
+
+        <button
+          class="fab-toggle"
+          id="toggle-transaction"
+          type="button"
+          aria-controls="transaction-card"
+          aria-expanded="false"
+          aria-label="Tampilkan form"
+          title="Tampilkan form"
+        >
+          <span class="fab-icon" aria-hidden="true">+</span>
+        </button>
       </div>
     </div>
 

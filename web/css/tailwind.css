@@ -72,7 +72,11 @@
   }
 
   .app-sidebar {
-    @apply hidden w-72 flex-col gap-8 border-r border-slate-200 bg-white/95 px-6 py-8 shadow-card backdrop-blur dark:border-slate-800 dark:bg-slate-950/80 lg:flex;
+    @apply sticky top-0 hidden h-screen w-72 flex-col gap-8 overflow-y-auto border-r border-slate-200 bg-white/95 px-6 py-8 shadow-card backdrop-blur dark:border-slate-800 dark:bg-slate-950/80;
+  }
+
+  .app-layout.nav-open .app-sidebar {
+    @apply lg:flex;
   }
 
   .sidebar-brand {
@@ -127,6 +131,18 @@
     @apply flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center;
   }
 
+  .filter-bar {
+    @apply flex flex-nowrap items-center gap-2;
+  }
+
+  .input-compact {
+    @apply h-10 px-3 text-sm;
+  }
+
+  .select-compact-tight {
+    @apply h-10 px-3 text-sm w-28;
+  }
+
   .select-compact {
     @apply w-full sm:w-auto sm:min-w-[180px];
   }
@@ -168,11 +184,11 @@
   }
 
   .mobile-toggle {
-    @apply inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 lg:hidden;
+    @apply inline-flex h-10 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
   }
 
   .mobile-drawer {
-    @apply fixed inset-y-0 left-0 z-40 w-72 -translate-x-full bg-white px-6 py-8 shadow-2xl transition-transform dark:bg-slate-950 lg:hidden;
+    @apply fixed inset-y-0 left-0 z-40 w-72 -translate-x-full bg-white px-6 py-8 shadow-2xl transition-transform dark:bg-slate-950 lg:hidden relative;
   }
 
   .mobile-drawer.open {
@@ -181,6 +197,18 @@
 
   .mobile-backdrop {
     @apply fixed inset-0 z-30 hidden bg-slate-900/40 backdrop-blur;
+  }
+
+  .hamburger {
+    @apply flex flex-col items-center justify-center gap-1;
+  }
+
+  .hamburger-line {
+    @apply block h-0.5 w-5 rounded-full bg-current;
+  }
+
+  .drawer-close {
+    @apply absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-lg font-semibold text-slate-600 shadow-sm transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
   }
 
   .page {
@@ -273,8 +301,47 @@
     @apply overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800;
   }
 
+  .table-wrap-compact {
+    @apply overflow-x-hidden;
+  }
+
+  .products-grid,
+  .transactions-grid {
+    @apply grid gap-6 lg:grid-cols-[360px,1fr];
+  }
+
+  .products-grid.form-hidden,
+  .transactions-grid.form-hidden {
+    @apply lg:grid-cols-1;
+  }
+
+  .fab-toggle {
+    @apply fixed bottom-6 right-6 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full bg-brand-500 text-white shadow-glow transition hover:bg-brand-600;
+  }
+
+  .fab-icon {
+    @apply text-xl font-semibold leading-none;
+  }
+
   .table {
     @apply w-full text-left text-sm;
+  }
+
+  .table.table-compact {
+    @apply table-fixed w-full;
+  }
+
+  .table.table-compact th,
+  .table.table-compact td {
+    @apply whitespace-normal break-words;
+  }
+
+  .table.table-compact th {
+    @apply px-3 py-2 text-[11px];
+  }
+
+  .table.table-compact td {
+    @apply px-3 py-2;
   }
 
   .table th {
@@ -329,6 +396,14 @@
     @apply translate-x-0;
   }
 
+  .drawer-backdrop {
+    @apply fixed inset-0 z-30 bg-slate-900/40 backdrop-blur;
+  }
+
+  .drawer-form {
+    @apply flex-1 min-h-0 overflow-y-auto;
+  }
+
   .modal {
     @apply fixed inset-0 z-50 flex items-center justify-center px-4 py-6;
   }
@@ -350,7 +425,7 @@
   }
 
   .drawer-actions {
-    @apply flex flex-wrap gap-3;
+    @apply sticky bottom-0 flex flex-wrap gap-3 border-t border-slate-200 bg-white/95 pb-2 pt-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95;
   }
 
   .toast {
@@ -371,6 +446,42 @@
 
   .cell-meta {
     @apply text-xs text-slate-500 dark:text-slate-400;
+  }
+
+  .thumb {
+    @apply flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-[10px] font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300;
+  }
+
+  .img-col {
+    @apply w-14 text-center;
+  }
+
+  .thumb-img {
+    @apply h-full w-full object-cover;
+  }
+
+  .image-preview {
+    @apply h-16 w-16 rounded-xl border border-slate-200 object-cover dark:border-slate-700;
+  }
+
+  .image-adjust {
+    @apply mt-2 flex flex-wrap items-start gap-3;
+  }
+
+  .image-canvas {
+    @apply h-24 w-24 rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800;
+  }
+
+  .image-controls {
+    @apply flex flex-wrap items-end gap-2 text-xs;
+  }
+
+  .image-control {
+    @apply flex min-w-[72px] flex-col gap-1;
+  }
+
+  .image-reset {
+    @apply h-8 px-2 text-xs;
   }
 
   .history-item {
@@ -405,6 +516,78 @@
     @apply mt-3 text-xs text-slate-500 dark:text-slate-400;
   }
 
+  .receipt-grid {
+    @apply grid gap-6 xl:grid-cols-[1.1fr,0.9fr];
+  }
+
+  .receipt-sheet {
+    @apply rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100;
+  }
+
+  .receipt-header {
+    @apply space-y-1 text-center;
+  }
+
+  .receipt-title {
+    @apply text-base font-semibold text-slate-900 dark:text-white;
+  }
+
+  .receipt-meta {
+    @apply text-xs text-slate-500 dark:text-slate-400;
+  }
+
+  .receipt-divider {
+    @apply my-3 border-t border-dashed border-slate-200 dark:border-slate-700;
+  }
+
+  .receipt-items {
+    @apply space-y-3;
+  }
+
+  .receipt-item {
+    @apply flex items-start justify-between gap-3;
+  }
+
+  .receipt-item-name {
+    @apply font-semibold text-slate-900 dark:text-white;
+  }
+
+  .receipt-item-meta {
+    @apply text-xs text-slate-500 dark:text-slate-400;
+  }
+
+  .receipt-item-total {
+    @apply font-semibold;
+  }
+
+  .receipt-total {
+    @apply text-base;
+  }
+
+  .receipt-footer {
+    @apply mt-4 text-center text-xs text-slate-500 dark:text-slate-400;
+  }
+
+  .receipt-empty {
+    @apply text-xs text-slate-500 dark:text-slate-400;
+  }
+
+  .payment-helper {
+    @apply rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300;
+  }
+
+  .payment-helper-title {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-400;
+  }
+
+  .payment-helper-text {
+    @apply mt-2 text-sm text-slate-700 dark:text-slate-200;
+  }
+
+  .payment-helper-cash {
+    @apply mt-3 flex flex-wrap items-end justify-between gap-3;
+  }
+
   .product-grid {
     @apply grid gap-4 md:grid-cols-2 xl:grid-cols-3;
   }
@@ -427,5 +610,40 @@
 
   .store-card {
     @apply min-h-[180px];
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+
+  .app-bg {
+    display: none !important;
+  }
+
+  .print-hidden {
+    display: none !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  .receipt-sheet {
+    border: none !important;
+    box-shadow: none !important;
   }
 }

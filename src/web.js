@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import path from 'path';
+import crypto from 'crypto';
+import fs from 'fs/promises';
 import express from 'express';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
@@ -73,6 +75,16 @@ app.use(express.urlencoded({ extended: false }));
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, '..', 'web');
 const pagesDir = path.join(publicDir, 'pages');
+const uploadsDir = path.join(publicDir, 'uploads');
+const productUploadsDir = path.join(uploadsDir, 'products');
+const MAX_IMAGE_BYTES = 100 * 1024;
+const IMAGE_EXTENSIONS = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp'
+};
+
+await fs.mkdir(productUploadsDir, { recursive: true });
 
 const PgSession = connectPgSimple(session);
 app.use(
@@ -93,6 +105,50 @@ app.use(
 
 app.use('/css', express.static(path.join(publicDir, 'css')));
 app.use('/js', express.static(path.join(publicDir, 'js')));
+app.use('/uploads', express.static(path.join(publicDir, 'uploads')));
+
+function parseImageDataUrl(dataUrl) {
+  const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/i.exec(String(dataUrl || '').trim());
+  if (!match) return null;
+  const mime = match[1].toLowerCase();
+  const ext = IMAGE_EXTENSIONS[mime];
+  if (!ext) return null;
+  const buffer = Buffer.from(match[2], 'base64');
+  return { buffer, ext };
+}
+
+async function saveProductImage(dataUrl) {
+  const parsed = parseImageDataUrl(dataUrl);
+  if (!parsed) {
+    const err = new Error('invalid_image');
+    err.code = 'invalid_image';
+    throw err;
+  }
+  if (parsed.buffer.length > MAX_IMAGE_BYTES) {
+    const err = new Error('image_too_large');
+    err.code = 'image_too_large';
+    throw err;
+  }
+
+  const filename = `product-${Date.now()}-${crypto.randomUUID()}.${parsed.ext}`;
+  const filePath = path.join(productUploadsDir, filename);
+  await fs.writeFile(filePath, parsed.buffer);
+  return `/uploads/products/${filename}`;
+}
+
+async function removeLocalImage(imageUrl) {
+  if (!imageUrl || typeof imageUrl !== 'string') return;
+  if (!imageUrl.startsWith('/uploads/')) return;
+  const relativePath = imageUrl.replace(/^\/+/, '');
+  const filePath = path.join(publicDir, relativePath);
+  try {
+    await fs.unlink(filePath);
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.error('Failed to remove image', err);
+    }
+  }
+}
 
 function requirePageAuth(req, res, next) {
   if (req.session?.user) return next();
@@ -234,6 +290,10 @@ app.get('/products', requirePageAuth, requireStoreSelection, (req, res) => {
 
 app.get('/transactions', requirePageAuth, requireStoreSelection, (req, res) => {
   res.sendFile(path.join(pagesDir, 'transactions.html'));
+});
+
+app.get('/receipts', requirePageAuth, requireStoreSelection, (req, res) => {
+  res.sendFile(path.join(pagesDir, 'receipts.html'));
 });
 
 app.get('/payables', requirePageAuth, requireStoreSelection, (req, res) => {
@@ -587,16 +647,66 @@ app.post('/api/public/orders', async (req, res) => {
 app.use('/api', requireApiAuth);
 app.use('/api/users', requireAdmin);
 
+app.get('/api/product-categories', async (req, res) => {
+  const storeId = await resolveStoreId(req);
+  const params = [];
+  const where = ["category IS NOT NULL", "category <> ''"];
+
+  if (storeId) {
+    params.push(storeId);
+    where.push(`store_id = $${params.length}`);
+  }
+
+  const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+  try {
+    const result = await dbPool.query(
+      `
+      SELECT DISTINCT category
+      FROM ${PRODUCTS_TABLE}
+      ${whereClause}
+      ORDER BY category ASC
+      `,
+      params
+    );
+
+    res.json({ data: (result.rows || []).map((row) => row.category) });
+  } catch (err) {
+    console.error('Failed to load product categories', err);
+    res.status(500).json({ error: 'failed_to_load' });
+  }
+});
+
 function toNumber(value) {
   if (typeof value === 'number') return value;
   const raw = String(value || '').trim();
   if (!raw) return Number.NaN;
   const cleaned = raw.replace(/[^0-9.,-]/g, '');
-  if (!cleaned) return Number.NaN;
-  const normalized = cleaned
-    .replace(/(\d)[.,](?=\d{3}(?:[.,]|$))/g, '$1')
-    .replace(',', '.');
-  return Number(normalized);
+  if (!cleaned || cleaned === '-' || cleaned === ',' || cleaned === '.') {
+    return Number.NaN;
+  }
+
+  const negative = cleaned.startsWith('-') || cleaned.endsWith('-');
+  const unsigned = cleaned.replace(/-/g, '');
+  const hasSeparator = /[.,]/.test(unsigned);
+
+  let normalized = unsigned;
+  if (hasSeparator) {
+    const lastDot = unsigned.lastIndexOf('.');
+    const lastComma = unsigned.lastIndexOf(',');
+    const lastSep = Math.max(lastDot, lastComma);
+    const decimals = unsigned.slice(lastSep + 1);
+    if (decimals.length > 0 && decimals.length <= 2) {
+      const integerPart = unsigned.slice(0, lastSep).replace(/[.,]/g, '');
+      normalized = `${integerPart}.${decimals}`;
+    } else {
+      normalized = unsigned.replace(/[.,]/g, '');
+    }
+  }
+
+  const num = Number(normalized);
+  if (Number.isNaN(num)) return Number.NaN;
+  return negative ? -Math.abs(num) : num;
 }
 
 function coerceNumber(value) {
@@ -1047,10 +1157,11 @@ app.delete('/api/stores/:id', requireAdmin, async (req, res) => {
   }
 });
 
-app.get('/api/products', async (req, res) => {
-  const includeInactive = req.query.includeInactive === 'true';
-  const search = String(req.query.search || '').trim();
-  const storeId = await resolveStoreId(req);
+  app.get('/api/products', async (req, res) => {
+    const includeInactive = req.query.includeInactive === 'true';
+    const search = String(req.query.search || '').trim();
+    const category = String(req.query.category || '').trim();
+    const storeId = await resolveStoreId(req);
 
   const params = [];
   const where = [];
@@ -1069,19 +1180,26 @@ app.get('/api/products', async (req, res) => {
     where.push(`p.name ILIKE $${params.length}`);
   }
 
+  if (category) {
+    params.push(category);
+    where.push(`LOWER(TRIM(p.category)) = LOWER(TRIM($${params.length}))`);
+  }
+
   const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
   try {
     const result = await dbPool.query(
       `
-      SELECT
-        p.id,
-        p.name,
-        p.unit,
-        p.note,
-        p.is_active,
-        p.default_buy_price,
-        p.default_sell_price,
+        SELECT
+          p.id,
+          p.name,
+          p.unit,
+          p.category,
+          p.image_url,
+          p.note,
+          p.is_active,
+          p.default_buy_price,
+          p.default_sell_price,
         p.last_buy_price,
         p.last_sell_price,
         p.store_id,
@@ -1107,13 +1225,17 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-app.post('/api/products', async (req, res) => {
-  const name = String(req.body?.name || '').trim();
-  const unit = String(req.body?.unit || '').trim() || null;
-  const note = String(req.body?.note || '').trim() || null;
-  const defaultBuyPrice = coerceNumber(req.body?.default_buy_price);
-  const defaultSellPrice = coerceNumber(req.body?.default_sell_price);
-  const payableMode = toPayableMode(req.body?.payable_mode, 'credit');
+  app.post('/api/products', async (req, res) => {
+    const name = String(req.body?.name || '').trim();
+    const unit = String(req.body?.unit || '').trim() || null;
+    const category = String(req.body?.category || '').trim() || null;
+    const imageData = String(req.body?.image_data || '').trim();
+    const imageUrlRaw = String(req.body?.image_url || '').trim();
+    let imageUrl = imageUrlRaw || null;
+    const note = String(req.body?.note || '').trim() || null;
+    const defaultBuyPrice = coerceNumber(req.body?.default_buy_price);
+    const defaultSellPrice = coerceNumber(req.body?.default_sell_price);
+    const payableMode = toPayableMode(req.body?.payable_mode, 'credit');
   const storeId = await resolveStoreId(req);
 
   if (!name) {
@@ -1134,31 +1256,38 @@ app.post('/api/products', async (req, res) => {
   const nameKey = normalizeItemKey(name);
 
   try {
-    const result = await dbPool.query(
-      `
-      INSERT INTO ${PRODUCTS_TABLE}
-        (name, name_key, store_id, unit, default_buy_price, default_sell_price, payable_mode, note, is_active, updated_at)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true,now())
-      ON CONFLICT (store_id, name_key) DO UPDATE
-      SET name = EXCLUDED.name,
-          unit = COALESCE(EXCLUDED.unit, ${PRODUCTS_TABLE}.unit),
-          default_buy_price = COALESCE(EXCLUDED.default_buy_price, ${PRODUCTS_TABLE}.default_buy_price),
-          default_sell_price = COALESCE(EXCLUDED.default_sell_price, ${PRODUCTS_TABLE}.default_sell_price),
-          payable_mode = COALESCE(EXCLUDED.payable_mode, ${PRODUCTS_TABLE}.payable_mode),
-          note = COALESCE(EXCLUDED.note, ${PRODUCTS_TABLE}.note),
-          is_active = true,
+      if (imageData) {
+        imageUrl = await saveProductImage(imageData);
+      }
+      const result = await dbPool.query(
+        `
+        INSERT INTO ${PRODUCTS_TABLE}
+          (name, name_key, store_id, unit, category, image_url, default_buy_price, default_sell_price, payable_mode, note, is_active, updated_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true,now())
+        ON CONFLICT (store_id, name_key) DO UPDATE
+        SET name = EXCLUDED.name,
+            unit = COALESCE(EXCLUDED.unit, ${PRODUCTS_TABLE}.unit),
+            category = COALESCE(EXCLUDED.category, ${PRODUCTS_TABLE}.category),
+            image_url = COALESCE(EXCLUDED.image_url, ${PRODUCTS_TABLE}.image_url),
+            default_buy_price = COALESCE(EXCLUDED.default_buy_price, ${PRODUCTS_TABLE}.default_buy_price),
+            default_sell_price = COALESCE(EXCLUDED.default_sell_price, ${PRODUCTS_TABLE}.default_sell_price),
+            payable_mode = COALESCE(EXCLUDED.payable_mode, ${PRODUCTS_TABLE}.payable_mode),
+            note = COALESCE(EXCLUDED.note, ${PRODUCTS_TABLE}.note),
+            is_active = true,
           updated_at = now()
       RETURNING *
       `,
       [
-        name,
-        nameKey,
-        storeId,
-        unit,
-        defaultBuyPrice,
-        defaultSellPrice,
-        payableMode,
-        note
+          name,
+          nameKey,
+          storeId,
+          unit,
+          category,
+          imageUrl,
+          defaultBuyPrice,
+          defaultSellPrice,
+          payableMode,
+          note
       ]
     );
 
@@ -1176,6 +1305,14 @@ app.post('/api/products', async (req, res) => {
 
     res.json({ id: product?.id });
   } catch (err) {
+    if (err.code === 'image_too_large') {
+      res.status(400).json({ error: 'image_too_large' });
+      return;
+    }
+    if (err.code === 'invalid_image') {
+      res.status(400).json({ error: 'invalid_image' });
+      return;
+    }
     console.error('Failed to create product', err);
     res.status(500).json({ error: 'failed_to_create' });
   }
@@ -1188,20 +1325,25 @@ app.put('/api/products/:id', async (req, res) => {
     return;
   }
 
-  const name = req.body?.name ? String(req.body.name).trim() : null;
-  const nameKey = name ? normalizeItemKey(name) : null;
-  const storeIdRaw = req.body?.store_id != null ? Number(req.body.store_id) : null;
-  const storeId = storeIdRaw != null && Number.isFinite(storeIdRaw)
-    ? storeIdRaw
-    : storeIdRaw === null
-      ? null
-      : Number.NaN;
-  const unit = req.body?.unit != null ? String(req.body.unit).trim() : null;
-  const note = req.body?.note != null ? String(req.body.note).trim() : null;
-  const defaultBuyPrice = coerceNumber(req.body?.default_buy_price);
-  const defaultSellPrice = coerceNumber(req.body?.default_sell_price);
-  const isActive = parseBoolean(req.body?.is_active);
-  const payableMode = toPayableMode(req.body?.payable_mode, null);
+    const name = req.body?.name ? String(req.body.name).trim() : null;
+    const nameKey = name ? normalizeItemKey(name) : null;
+    const storeIdRaw = req.body?.store_id != null ? Number(req.body.store_id) : null;
+    const storeId = storeIdRaw != null && Number.isFinite(storeIdRaw)
+      ? storeIdRaw
+      : storeIdRaw === null
+        ? null
+        : Number.NaN;
+    const unit = req.body?.unit != null ? String(req.body.unit).trim() : null;
+    const category = req.body?.category != null ? String(req.body.category).trim() : null;
+    const imageData = String(req.body?.image_data || '').trim();
+    const imageRemove = parseBoolean(req.body?.image_remove) === true;
+    const imageUrlProvided = Object.prototype.hasOwnProperty.call(req.body || {}, 'image_url');
+    const imageUrlRaw = imageUrlProvided ? String(req.body.image_url || '').trim() : null;
+    const note = req.body?.note != null ? String(req.body.note).trim() : null;
+    const defaultBuyPrice = coerceNumber(req.body?.default_buy_price);
+    const defaultSellPrice = coerceNumber(req.body?.default_sell_price);
+    const isActive = parseBoolean(req.body?.is_active);
+    const payableMode = toPayableMode(req.body?.payable_mode, null);
 
   if (Number.isNaN(storeId)) {
     res.status(400).json({ error: 'invalid_store' });
@@ -1219,36 +1361,62 @@ app.put('/api/products/:id', async (req, res) => {
       return;
     }
 
+    let shouldUpdateImage = false;
+    let nextImageUrl = null;
+
+    if (imageRemove) {
+      shouldUpdateImage = true;
+      nextImageUrl = null;
+    } else if (imageData) {
+      shouldUpdateImage = true;
+      nextImageUrl = await saveProductImage(imageData);
+    } else if (imageUrlProvided) {
+      shouldUpdateImage = true;
+      nextImageUrl = imageUrlRaw || null;
+    }
+
     const result = await dbPool.query(
       `
-      UPDATE ${PRODUCTS_TABLE}
-      SET name = COALESCE($2, name),
-          name_key = COALESCE($3, name_key),
-          store_id = COALESCE($4, store_id),
-          unit = COALESCE($5, unit),
-          default_buy_price = COALESCE($6, default_buy_price),
-          default_sell_price = COALESCE($7, default_sell_price),
-          payable_mode = COALESCE($8, payable_mode),
-          note = COALESCE($9, note),
-          is_active = COALESCE($10, is_active),
-          updated_at = now()
-      WHERE id = $1
-      RETURNING *
-      `,
-      [
-        id,
-        name,
-        nameKey,
-        storeId,
-        unit,
-        defaultBuyPrice,
-        defaultSellPrice,
-        payableMode,
-        note,
-        isActive
+        UPDATE ${PRODUCTS_TABLE}
+        SET name = COALESCE($2, name),
+            name_key = COALESCE($3, name_key),
+            store_id = COALESCE($4, store_id),
+            unit = COALESCE($5, unit),
+            category = COALESCE($6, category),
+            default_buy_price = COALESCE($7, default_buy_price),
+            default_sell_price = COALESCE($8, default_sell_price),
+            payable_mode = COALESCE($9, payable_mode),
+            note = COALESCE($10, note),
+            image_url = CASE
+              WHEN $11 THEN $12
+              ELSE image_url
+            END,
+            is_active = COALESCE($13, is_active),
+            updated_at = now()
+        WHERE id = $1
+        RETURNING *
+        `,
+        [
+          id,
+          name,
+          nameKey,
+          storeId,
+          unit,
+          category,
+          defaultBuyPrice,
+          defaultSellPrice,
+          payableMode,
+          note,
+          shouldUpdateImage,
+          nextImageUrl,
+          isActive
       ]
     );
     const after = result.rows?.[0];
+
+    if (shouldUpdateImage && before?.image_url && before.image_url !== nextImageUrl) {
+      await removeLocalImage(before.image_url);
+    }
 
     await recordAudit({
       userId: req.session.user?.id,
@@ -1262,6 +1430,14 @@ app.put('/api/products/:id', async (req, res) => {
 
     res.json({ id: after?.id });
   } catch (err) {
+    if (err.code === 'image_too_large') {
+      res.status(400).json({ error: 'image_too_large' });
+      return;
+    }
+    if (err.code === 'invalid_image') {
+      res.status(400).json({ error: 'invalid_image' });
+      return;
+    }
     if (String(err?.message || '').includes('duplicate key')) {
       res.status(409).json({ error: 'duplicate_name' });
       return;

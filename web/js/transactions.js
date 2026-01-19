@@ -2,6 +2,7 @@ import {
   escapeHtml,
   fetchJson,
   formatCurrency,
+  formatCurrencyInputValue,
   formatNumber,
   getActiveStoreId,
   initNav,
@@ -23,6 +24,9 @@ const searchInput = document.getElementById('search-input');
 const filterType = document.getElementById('filter-type');
 const refreshBtn = document.getElementById('refresh-btn');
 const transactionRows = document.getElementById('transaction-rows');
+const transactionsGrid = document.getElementById('transactions-grid');
+const transactionCard = document.getElementById('transaction-card');
+const toggleTransactionBtn = document.getElementById('toggle-transaction');
 
 const state = {
   products: [],
@@ -35,6 +39,39 @@ const state = {
 };
 
 let searchTimer;
+const TRANSACTION_FORM_STORAGE_KEY = 'transactions:form-hidden';
+
+function setTransactionFormHidden(hidden, shouldPersist = true) {
+  if (!transactionCard || !transactionsGrid || !toggleTransactionBtn) return;
+  transactionCard.classList.toggle('hidden', hidden);
+  transactionsGrid.classList.toggle('form-hidden', hidden);
+  const label = hidden ? 'Tampilkan form' : 'Sembunyikan form';
+  toggleTransactionBtn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+  toggleTransactionBtn.setAttribute('aria-label', label);
+  toggleTransactionBtn.setAttribute('title', label);
+  const icon = toggleTransactionBtn.querySelector('.fab-icon');
+  if (icon) icon.textContent = hidden ? '+' : '-';
+  if (!shouldPersist) return;
+  try {
+    localStorage.setItem(TRANSACTION_FORM_STORAGE_KEY, hidden ? '1' : '0');
+  } catch (err) {
+    // Ignore storage errors (private mode, etc.)
+  }
+}
+
+function loadTransactionFormState() {
+  if (!transactionCard || !transactionsGrid || !toggleTransactionBtn) return;
+  try {
+    const saved = localStorage.getItem(TRANSACTION_FORM_STORAGE_KEY);
+    if (saved === '0') {
+      setTransactionFormHidden(false, false);
+    } else {
+      setTransactionFormHidden(true, false);
+    }
+  } catch (err) {
+    // Ignore storage errors.
+  }
+}
 
 function pickNumber(value) {
   const num = toNumber(value);
@@ -125,12 +162,18 @@ function suggestPrices(product) {
 
   if (type === 'IN' && buyInput && !buyInput.value) {
     const buyPrice = pickPrice(product.last_buy_price, product.default_buy_price);
-    if (buyPrice != null) buyInput.value = buyPrice;
+    if (buyPrice != null) {
+      buyInput.value = buyPrice;
+      formatCurrencyInputValue(buyInput);
+    }
   }
 
   if (type === 'OUT' && sellInput && !sellInput.value) {
     const sellPrice = pickPrice(product.last_sell_price, product.default_sell_price);
-    if (sellPrice != null) sellInput.value = sellPrice;
+    if (sellPrice != null) {
+      sellInput.value = sellPrice;
+      formatCurrencyInputValue(sellInput);
+    }
   }
 }
 
@@ -161,6 +204,8 @@ function updateTypeFields() {
   }
 
   suggestPrices(state.products.find((item) => item.id === state.selectedProductId));
+  formatCurrencyInputValue(buyInput);
+  formatCurrencyInputValue(sellInput);
 }
 
 function renderTransactions() {
@@ -269,7 +314,11 @@ form.addEventListener('submit', async (event) => {
   }
 
   const storeId = getActiveStoreId();
-  if (storeId) payload.store_id = storeId;
+  if (!storeId) {
+    showToast('Pilih toko aktif dulu.', true);
+    return;
+  }
+  payload.store_id = storeId;
 
   try {
     const res = await fetchJson('/api/transactions', {
@@ -334,6 +383,13 @@ if (refreshBtn) {
   });
 }
 
+if (toggleTransactionBtn) {
+  toggleTransactionBtn.addEventListener('click', () => {
+    const isHidden = transactionCard?.classList.contains('hidden');
+    setTransactionFormHidden(!isHidden);
+  });
+}
+
 window.addEventListener('store:change', () => {
   state.selectedProductId = null;
   form.reset();
@@ -344,6 +400,7 @@ window.addEventListener('store:change', () => {
 
 (async function init() {
   await initNav('transactions');
+  loadTransactionFormState();
   const params = new URLSearchParams(window.location.search);
   const typeParam = String(params.get('type') || '').toUpperCase();
   if (['IN', 'OUT', 'DAMAGE'].includes(typeParam)) {
