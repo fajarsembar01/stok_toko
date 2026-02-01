@@ -30,6 +30,7 @@
           <a class="nav-link" href="/receipts" data-page="receipts">Struk</a>
           <a class="nav-link" href="/payables" data-page="payables">Modal</a>
           <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+          <a class="nav-link" href="/ai-settings" data-page="ai-settings">AI &amp; WA</a>
           <a class="nav-link" href="/users" data-page="users">Pengguna</a>
           <a class="nav-link" href="/logs" data-page="logs">Log</a>
         </nav>
@@ -103,6 +104,7 @@
             <a class="nav-link" href="/receipts" data-page="receipts">Struk</a>
             <a class="nav-link" href="/payables" data-page="payables">Modal</a>
             <a class="nav-link" href="/stores" data-page="stores">Toko</a>
+          <a class="nav-link" href="/ai-settings" data-page="ai-settings">AI &amp; WA</a>
             <a class="nav-link" href="/users" data-page="users">Pengguna</a>
             <a class="nav-link" href="/logs" data-page="logs">Log</a>
           </nav>
@@ -188,6 +190,13 @@
                     &#x21bb;
                   </button>
                   <input id="search-input" class="input input-compact w-44" placeholder="Cari" />
+                  <input
+                    id="filter-date"
+                    class="input input-compact w-44"
+                    type="date"
+                    aria-label="Tanggal"
+                    title="Tanggal"
+                  />
                   <select id="filter-type" class="select select-compact-tight" aria-label="Tipe" title="Tipe">
                     <option value="">Semua</option>
                     <option value="IN">Masuk</option>
@@ -236,3 +245,4 @@
     <script type="module" src="/js/transactions.js"></script>
   </body>
 </html>
+

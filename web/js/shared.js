@@ -202,7 +202,7 @@ export function toNumber(value) {
   const cleaned = raw.replace(/[^0-9,.-]/g, '');
   if (!cleaned || cleaned === '-' || cleaned === ',' || cleaned === '.') return null;
 
-  const negative = cleaned.startsWith('-') || cleaned.endsWith('-');
+  const negative = cleaned.startsWith('-');
   const unsigned = cleaned.replace(/-/g, '');
   const hasSeparator = /[.,]/.test(unsigned);
 
@@ -245,9 +245,19 @@ export function formatNumber(value) {
   return formatter.format(num);
 }
 
+function parseCurrencyInput(raw) {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'number') {
+    return Number.isNaN(raw) ? null : raw;
+  }
+  const digits = String(raw).replace(/\D/g, '');
+  if (!digits) return null;
+  return Number(digits);
+}
+
 export function formatCurrencyInputValue(input) {
   if (!(input instanceof HTMLInputElement)) return;
-  const num = toNumber(input.value);
+  const num = parseCurrencyInput(input.value);
   if (num === null) {
     input.value = '';
     return;
@@ -265,7 +275,7 @@ export function initCurrencyInputs(root = document) {
     }
     input.dataset.currencyBound = 'true';
     input.addEventListener('input', () => {
-      const num = toNumber(input.value);
+      const num = parseCurrencyInput(input.value);
       if (num === null) {
         input.value = '';
         return;
@@ -306,6 +316,14 @@ export async function fetchMe() {
     const storesLinks = document.querySelectorAll('.nav-links a[data-page="stores"]');
     if (storesLinks.length && data.user?.role) {
       storesLinks.forEach((link) =>
+        link.classList.toggle('hidden', data.user.role !== 'admin')
+      );
+    }
+    const aiLinks = document.querySelectorAll(
+      '.nav-links a[data-page="ai-settings"]'
+    );
+    if (aiLinks.length && data.user?.role) {
+      aiLinks.forEach((link) =>
         link.classList.toggle('hidden', data.user.role !== 'admin')
       );
     }

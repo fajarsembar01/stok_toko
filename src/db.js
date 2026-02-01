@@ -49,6 +49,9 @@ const OUTBOUND_MESSAGES_TABLE_RAW =
 const OUTBOUND_MESSAGES_TABLE =
   OUTBOUND_MESSAGES_TABLE_RAW.replace(/[^a-zA-Z0-9_]/g, '') ||
   'outbound_messages';
+const APP_SETTINGS_TABLE_RAW = process.env.APP_SETTINGS_TABLE || 'app_settings';
+const APP_SETTINGS_TABLE =
+  APP_SETTINGS_TABLE_RAW.replace(/[^a-zA-Z0-9_]/g, '') || 'app_settings';
 const PG_SSL = process.env.PG_SSL === 'true';
 
 function normalizeItemKey(value) {
@@ -410,6 +413,26 @@ async function ensureDatabase(pool) {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${APP_SETTINGS_TABLE} (
+      key text PRIMARY KEY,
+      value text,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  const adminWaSeed = String(process.env.ADMIN_WA_NUMBER || '').trim();
+  if (adminWaSeed) {
+    await pool.query(
+      `
+      INSERT INTO ${APP_SETTINGS_TABLE} (key, value, updated_at)
+      VALUES ('admin_wa_number', $1, now())
+      ON CONFLICT (key) DO NOTHING
+      `,
+      [adminWaSeed]
+    );
+  }
+
   const auditUserFk = `${AUDIT_LOGS_TABLE}_user_id_fkey`;
   await pool.query(`
     DO $$
@@ -748,6 +771,7 @@ export {
   BUYER_ORDERS_TABLE,
   BUYER_ORDER_ITEMS_TABLE,
   OUTBOUND_MESSAGES_TABLE,
+  APP_SETTINGS_TABLE,
   normalizeItemKey,
   createPool,
   ensureDatabase

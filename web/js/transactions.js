@@ -22,6 +22,7 @@ const sellField = document.getElementById('sell-field');
 const priceHint = document.getElementById('price-hint');
 const searchInput = document.getElementById('search-input');
 const filterType = document.getElementById('filter-type');
+const filterDate = document.getElementById('filter-date');
 const refreshBtn = document.getElementById('refresh-btn');
 const transactionRows = document.getElementById('transaction-rows');
 const transactionsGrid = document.getElementById('transactions-grid');
@@ -33,6 +34,7 @@ const state = {
   transactions: [],
   search: '',
   filterType: '',
+  filterDate: '',
   selectedProductId: null,
   prefillProductId: null,
   prefillType: null
@@ -208,6 +210,18 @@ function updateTypeFields() {
   formatCurrencyInputValue(sellInput);
 }
 
+function getLocalDateRange(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const start = new Date(`${raw}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return null;
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { from: start.toISOString(), to: end.toISOString() };
+}
+
 function renderTransactions() {
   const rows = state.transactions
     .map((tx) => {
@@ -276,6 +290,11 @@ async function fetchTransactions() {
     if (storeId) params.set('storeId', storeId);
     if (state.search) params.set('search', state.search);
     if (state.filterType) params.set('type', state.filterType);
+    const dateRange = getLocalDateRange(state.filterDate);
+    if (dateRange) {
+      params.set('from', dateRange.from);
+      params.set('to', dateRange.to);
+    }
     params.set('limit', '100');
 
     const data = await fetchJson(`/api/transactions?${params.toString()}`);
@@ -376,6 +395,15 @@ if (filterType) {
   });
 }
 
+if (filterDate) {
+  const handleDateChange = (event) => {
+    state.filterDate = event.target.value;
+    fetchTransactions();
+  };
+  filterDate.addEventListener('input', handleDateChange);
+  filterDate.addEventListener('change', handleDateChange);
+}
+
 if (refreshBtn) {
   refreshBtn.addEventListener('click', () => {
     fetchProducts();
@@ -410,6 +438,9 @@ window.addEventListener('store:change', () => {
   const productParam = Number(params.get('productId') || params.get('product_id'));
   if (Number.isFinite(productParam) && productParam > 0) {
     state.prefillProductId = productParam;
+  }
+  if (filterDate && filterDate.value) {
+    state.filterDate = filterDate.value;
   }
 
   updateTypeFields();

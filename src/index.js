@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import fs from 'fs';
+import path from 'path';
 import qrcodeTerminal from 'qrcode-terminal';
 import QRCode from 'qrcode';
 import P from 'pino';
@@ -15,6 +16,7 @@ import { google } from 'googleapis';
 import {
   DB_SUMMARY_VIEW,
   DB_TABLE,
+  APP_SETTINGS_TABLE,
   OUTBOUND_MESSAGES_TABLE,
   PAYABLE_ENTRIES_TABLE,
   PAYABLE_PAYMENTS_TABLE,
@@ -50,6 +52,7 @@ const COMMAND = process.env.BOT_COMMAND || '!sheet';
 const ALLOW_GROUPS = process.env.ALLOW_GROUPS === 'true';
 const ALLOW_SELF = process.env.ALLOW_SELF === 'true';
 const AUTH_DIR = process.env.WHATSAPP_AUTH_DIR || './auth_info';
+const AUTH_DIR_PATH = path.resolve(process.cwd(), AUTH_DIR);
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 const AI_PROVIDER = process.env.AI_PROVIDER || 'heuristic';
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
@@ -58,9 +61,14 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
-const ADMIN_WA_NUMBER = process.env.ADMIN_WA_NUMBER || '';
+const ADMIN_WA_NUMBER = String(process.env.ADMIN_WA_NUMBER || '').trim();
 const DEFAULT_STORE_SLUG = (process.env.DEFAULT_STORE_SLUG || 'dewi').toLowerCase();
 const STORE_CACHE_TTL_MS = Number(process.env.STORE_CACHE_TTL_MS || 60000);
+const SETTINGS_CACHE_TTL_MS = Number(process.env.SETTINGS_CACHE_TTL_MS || 15000);
+const AI_GROUP_ALLOWLIST_ENV = String(process.env.AI_GROUP_ALLOWLIST || '').trim();
+const WA_STATUS_FILE = path.join(AUTH_DIR_PATH, 'wa_status.json');
+const WA_RESET_FILE = path.join(AUTH_DIR_PATH, 'wa_reset.json');
+const QR_FILE = path.resolve(process.cwd(), 'qr.png');
 
 const COMMAND_ALIASES = {
   sheet: [COMMAND, '!sheet'],
@@ -70,7 +78,8 @@ const COMMAND_ALIASES = {
   pay: ['!bayar', '!pay', '!modal'],
   stock: ['!stock', '!stok'],
   help: ['!help', '!format'],
-  ai: ['!ai', '!catat']
+  ai: ['!ai', '!catat'],
+  groupid: ['!groupid', '!gid']
 };
 
 if (!fs.existsSync(SERVICE_ACCOUNT_FILE)) {
@@ -83,14 +92,167 @@ const dbPool = createPool();
 const numberFormat = new Intl.NumberFormat('id-ID');
 let outboundInterval = null;
 let sockReady = false;
+let controlInterval = null;
+let activeSock = null;
+let forceRelogin = false;
+let resetInProgress = false;
+const settingsCache = {
+  adminWaNumber: ADMIN_WA_NUMBER,
+  adminFetchedAt: 0,
+  aiGroupAllowlist: [],
+  aiGroupFetchedAt: 0
+};
 
 async function writeQrPng(qrText) {
   try {
-    await QRCode.toFile('qr.png', qrText, { width: 360 });
+    await QRCode.toFile(QR_FILE, qrText, { width: 360 });
     console.log('QR saved to qr.png');
   } catch (err) {
     logger.warn({ err }, 'Failed to write qr.png');
   }
+}
+
+async function clearQrFile() {
+  try {
+    await fs.promises.unlink(QR_FILE);
+  } catch (err) {
+    if (err?.code !== 'ENOENT') {
+      logger.warn({ err }, 'Failed to remove qr.png');
+    }
+  }
+}
+
+async function writeWaStatus(status, extra = {}) {
+  try {
+    await fs.promises.mkdir(AUTH_DIR_PATH, { recursive: true });
+    const payload = {
+      status,
+      updated_at: new Date().toISOString(),
+      ...extra
+    };
+    await fs.promises.writeFile(WA_STATUS_FILE, JSON.stringify(payload));
+  } catch (err) {
+    logger.warn({ err }, 'Failed to write WA status');
+  }
+}
+
+function extractWaNumber(jid) {
+  const raw = String(jid || '');
+  if (!raw) return '';
+  const withoutDomain = raw.split('@')[0] || raw;
+  const withoutDevice = withoutDomain.split(':')[0] || withoutDomain;
+  return normalizePhoneNumber(withoutDevice);
+}
+
+async function getAdminWaNumber() {
+  if (!dbPool) return ADMIN_WA_NUMBER;
+  const now = Date.now();
+  if (
+    settingsCache.adminFetchedAt &&
+    now - settingsCache.adminFetchedAt < SETTINGS_CACHE_TTL_MS
+  ) {
+    return settingsCache.adminWaNumber || ADMIN_WA_NUMBER;
+  }
+
+  try {
+    const res = await dbPool.query(
+      `SELECT value FROM ${APP_SETTINGS_TABLE} WHERE key = $1 LIMIT 1`,
+      ['admin_wa_number']
+    );
+    const value = String(res.rows?.[0]?.value || '').trim();
+    settingsCache.adminWaNumber = value || ADMIN_WA_NUMBER || '';
+    settingsCache.adminFetchedAt = now;
+    return settingsCache.adminWaNumber;
+  } catch (err) {
+    logger.warn({ err }, 'Failed to read admin WA setting');
+    return ADMIN_WA_NUMBER || '';
+  }
+}
+
+async function getAiGroupAllowlist() {
+  if (!dbPool) {
+    return parseGroupAllowlist(AI_GROUP_ALLOWLIST_ENV);
+  }
+
+  const now = Date.now();
+  if (
+    settingsCache.aiGroupFetchedAt &&
+    now - settingsCache.aiGroupFetchedAt < SETTINGS_CACHE_TTL_MS
+  ) {
+    return settingsCache.aiGroupAllowlist || [];
+  }
+
+  try {
+    const res = await dbPool.query(
+      `SELECT value FROM ${APP_SETTINGS_TABLE} WHERE key = $1 LIMIT 1`,
+      ['ai_group_allowlist']
+    );
+    const value = String(res.rows?.[0]?.value || '').trim();
+    const parsed = parseGroupAllowlist(value);
+    settingsCache.aiGroupAllowlist = parsed;
+    settingsCache.aiGroupFetchedAt = now;
+    return parsed;
+  } catch (err) {
+    logger.warn({ err }, 'Failed to read AI group allowlist');
+    return [];
+  }
+}
+
+async function checkResetRequest() {
+  if (!activeSock || resetInProgress) return;
+  let raw = '';
+  try {
+    raw = await fs.promises.readFile(WA_RESET_FILE, 'utf8');
+  } catch (err) {
+    if (err?.code !== 'ENOENT') {
+      logger.warn({ err }, 'Failed to read WA reset request');
+    }
+    return;
+  }
+
+  let command = null;
+  try {
+    command = JSON.parse(raw);
+  } catch (err) {
+    command = null;
+  }
+
+  try {
+    await fs.promises.unlink(WA_RESET_FILE);
+  } catch (err) {
+    if (err?.code !== 'ENOENT') {
+      logger.warn({ err }, 'Failed to clear WA reset request');
+    }
+  }
+
+  if (!command || command.action !== 'reset') return;
+
+  resetInProgress = true;
+  forceRelogin = true;
+  sockReady = false;
+  await writeWaStatus('resetting', {
+    requested_at: command.requested_at || new Date().toISOString()
+  });
+
+  try {
+    await fs.promises.rm(AUTH_DIR_PATH, { recursive: true, force: true });
+  } catch (err) {
+    logger.warn({ err }, 'Failed to clear WA auth data');
+  }
+
+  try {
+    await activeSock.logout();
+  } catch (err) {
+    logger.warn({ err }, 'Failed to logout WA session');
+  } finally {
+    resetInProgress = false;
+  }
+
+  setTimeout(() => {
+    if (!sockReady) {
+      void startSock();
+    }
+  }, 1500);
 }
 
 const auth = new google.auth.GoogleAuth({
@@ -128,6 +290,43 @@ function normalizePhoneNumber(value) {
   if (digits.startsWith('0')) return `62${digits.slice(1)}`;
   if (digits.startsWith('8')) return `62${digits}`;
   return digits;
+}
+
+function normalizeGroupJid(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  if (raw.includes('@')) return raw;
+  if (/^[0-9-]+$/.test(raw)) return `${raw}@g.us`;
+  return raw;
+}
+
+function parseGroupAllowlist(input) {
+  if (!input) return [];
+  let rawList = [];
+
+  if (Array.isArray(input)) {
+    rawList = input;
+  } else if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        rawList = parsed;
+      } else {
+        rawList = trimmed.split(/[\n,;]/g);
+      }
+    } catch (err) {
+      rawList = trimmed.split(/[\n,;]/g);
+    }
+  } else {
+    rawList = [input];
+  }
+
+  const normalized = rawList
+    .map((value) => normalizeGroupJid(value))
+    .filter(Boolean);
+  return Array.from(new Set(normalized));
 }
 
 function toWhatsappJid(value) {
@@ -207,7 +406,8 @@ async function getDefaultStore() {
 async function processOutboundQueue(sock) {
   if (!dbPool || !sockReady) return;
 
-  const fallbackJid = toWhatsappJid(ADMIN_WA_NUMBER) || sock?.user?.id || null;
+  const adminNumber = await getAdminWaNumber();
+  const fallbackJid = toWhatsappJid(adminNumber) || sock?.user?.id || null;
   if (!fallbackJid) return;
 
   try {
@@ -852,12 +1052,134 @@ async function saveTransactionFromParsed(parsed, typeHint, sender, raw, storeId)
   };
 }
 
+function formatSection(title, lines) {
+  const filtered = (lines || [])
+    .map((line) => (line == null ? '' : String(line)).trim())
+    .filter(Boolean);
+  if (filtered.length === 0) return title;
+  return [title, ...filtered.map((line) => `- ${line}`)].join('\n');
+}
+
+function joinSections(sections) {
+  return (sections || []).filter(Boolean).join('\n\n');
+}
+
+function buildTransactionReply(result) {
+  if (!result) return '';
+  if (result.type === 'IN') {
+    const lines = [
+      `Item: ${result.item}`,
+      `Qty: ${formatNumber(result.qty)}`,
+      `Harga beli: ${formatRupiah(result.buyPrice)}`
+    ];
+    if (result.sellPrice != null) {
+      lines.push(`Harga jual: ${formatRupiah(result.sellPrice)}`);
+    }
+    lines.push(`Total: ${formatRupiah(result.total)}`);
+    return formatSection('OK MASUK', lines);
+  }
+  if (result.type === 'DAMAGE') {
+    return formatSection('OK RUSAK', [
+      `Item: ${result.item}`,
+      `Qty: ${formatNumber(result.qty)}`,
+      'Status: Modal tidak ditagihkan'
+    ]);
+  }
+
+  const label = result.usedFallback ? 'Harga jual (default)' : 'Harga jual';
+  return formatSection('OK KELUAR', [
+    `Item: ${result.item}`,
+    `Qty: ${formatNumber(result.qty)}`,
+    `${label}: ${formatRupiah(result.sellPrice)}`,
+    `Total: ${formatRupiah(result.total)}`
+  ]);
+}
+
+function buildStockReply(item, summary) {
+  return formatSection('RINGKASAN STOK', [
+    `Item: ${item}`,
+    `Masuk: ${formatNumber(summary.inQty)}`,
+    `Keluar: ${formatNumber(summary.outQty)}`,
+    `Stok: ${formatNumber(summary.stock)}`,
+    `Penjualan: ${formatRupiah(summary.revenue)}`,
+    `Pembelian: ${formatRupiah(summary.cost)}`,
+    `Profit: ${formatRupiah(summary.profit)}`
+  ]);
+}
+
+function buildPaymentReply(payment, result, balanceValue) {
+  const appliedAmount = payment.amount - (result?.remaining || 0);
+  const summaryLines = [
+    `Nominal: ${formatRupiah(payment.amount)}`,
+    `Terpakai: ${formatRupiah(appliedAmount)}`
+  ];
+
+  if ((result?.remaining || 0) > 0) {
+    summaryLines.push(`Sisa jadi kredit: ${formatRupiah(result.remaining)}`);
+  }
+
+  if (balanceValue < 0) {
+    summaryLines.push(`Sisa utang: ${formatRupiah(Math.abs(balanceValue))}`);
+  } else if (balanceValue > 0) {
+    summaryLines.push(`Saldo kredit: ${formatRupiah(balanceValue)}`);
+  } else {
+    summaryLines.push('Status: Utang modal sudah lunas');
+  }
+
+  const allocations = result?.allocations || [];
+  const allocationLines = [];
+  if (allocations.length > 0) {
+    const maxLines = 10;
+    const shown = allocations.slice(0, maxLines);
+    for (const entry of shown) {
+      const qtyPaid = entry.costPrice > 0 ? entry.amount / entry.costPrice : 0;
+      allocationLines.push(
+        `${entry.item} x${formatNumber(qtyPaid)} @ ${formatRupiah(
+          entry.costPrice
+        )} = ${formatRupiah(entry.amount)}`
+      );
+    }
+    if (allocations.length > maxLines) {
+      allocationLines.push(`... dan ${allocations.length - maxLines} item lagi`);
+    }
+  } else {
+    allocationLines.push('Tidak ada utang, semua jadi kredit.');
+  }
+
+  return joinSections([
+    formatSection('OK BAYAR MODAL', summaryLines),
+    formatSection('RINCIAN ALOKASI', allocationLines)
+  ]);
+}
+
+function buildMissingPriceReply(error, exampleTrigger, item) {
+  if (error === 'missing_buy') {
+    return formatSection('DATA BELUM LENGKAP', [
+      'Harga beli belum ada.',
+      `Contoh: ${exampleTrigger} tissu masuk 10 buah harga beli 2000 harga jual 3000`
+    ]);
+  }
+  if (error === 'missing_sell') {
+    return formatSection('DATA BELUM LENGKAP', [
+      `Harga jual untuk ${item} belum ada.`,
+      `Contoh: ${exampleTrigger} ${item} masuk 10 harga beli 2000 harga jual 3000`
+    ]);
+  }
+  if (error === 'missing_cost') {
+    return formatSection('DATA BELUM LENGKAP', [
+      `Harga beli untuk ${item} belum ada.`,
+      `Contoh: ${exampleTrigger} ${item} masuk 10 harga beli 2000 harga jual 3000`
+    ]);
+  }
+  return '';
+}
+
 function helpText() {
   const triggerLabels = getStoreTriggerLabels().map(formatTriggerLabel);
   const triggerHint =
     triggerLabels.length > 0
-      ? `Trigger toko: ${triggerLabels.join(', ')}`
-      : 'Trigger toko: Dewi, Dina';
+      ? `Trigger tersedia: ${triggerLabels.join(', ')}`
+      : 'Trigger tersedia: Dewi, Dina';
   const primaryTrigger = triggerLabels[0] || 'Dewi';
   const secondaryTrigger =
     triggerLabels[1] && triggerLabels[1] !== primaryTrigger ? triggerLabels[1] : null;
@@ -877,30 +1199,31 @@ function helpText() {
     );
   }
 
-  return [
-    'Format:',
-    '!in barang, qty, harga_beli[, harga_jual, catatan]',
-    '!out barang, qty[, harga_jual, catatan]',
-    '!damage barang, qty',
-    '!stock barang',
-    'bayar modal 50000',
-    triggerHint,
-    ...storeFormatLines,
-    '',
-    'Contoh:',
-    '!in Beras 5kg, 2, 60000',
-    '!in Beras 5kg, 2, 60000, 75000',
-    '!out Beras 5kg, 1',
-    '!damage Beras 5kg, 1',
-    'bayar modal 50000',
-    `${primaryTrigger} tissu masuk 10 buah harga beli 2000 harga jual 3000`,
-    `${primaryTrigger} tissu terjual 1`,
-    `${primaryTrigger} tissu rusak 1`,
-    secondaryTrigger
-      ? `${secondaryTrigger} pupuk masuk 5 karung harga beli 10000 harga jual 15000`
-      : null,
-    secondaryTrigger ? `${secondaryTrigger} pupuk terjual 1` : null
-  ].filter(Boolean).join('\n');
+  return joinSections([
+    formatSection('FORMAT PERINTAH', [
+      '!in barang, qty, harga_beli[, harga_jual, catatan]',
+      '!out barang, qty[, harga_jual, catatan]',
+      '!damage barang, qty',
+      '!stock barang',
+      'bayar modal 50000',
+      'admin: !groupid (khusus grup)'
+    ]),
+    formatSection('MODE TRIGGER TOKO', [triggerHint, ...storeFormatLines]),
+    formatSection('CONTOH', [
+      '!in Beras 5kg, 2, 60000',
+      '!in Beras 5kg, 2, 60000, 75000',
+      '!out Beras 5kg, 1',
+      '!damage Beras 5kg, 1',
+      'bayar modal 50000',
+      `${primaryTrigger} tissu masuk 10 buah harga beli 2000 harga jual 3000`,
+      `${primaryTrigger} tissu terjual 1`,
+      `${primaryTrigger} tissu rusak 1`,
+      secondaryTrigger
+        ? `${secondaryTrigger} pupuk masuk 5 karung harga beli 10000 harga jual 15000`
+        : null,
+      secondaryTrigger ? `${secondaryTrigger} pupuk terjual 1` : null
+    ])
+  ]);
 }
 
 function formatTriggerLabel(label) {
@@ -1315,11 +1638,21 @@ function getSenderId(msg) {
   return jid.split('@')[0];
 }
 
+function getSenderJid(msg) {
+  return msg.key.participant || msg.key.remoteJid || '';
+}
+
+function getSenderWaNumber(msg) {
+  const jid = getSenderJid(msg);
+  return extractWaNumber(jid);
+}
+
 async function startSock() {
   await ensureDatabase(dbPool);
   await ensureSheetLayout();
+  await writeWaStatus('starting');
 
-  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR_PATH);
   const { version } = await fetchLatestBaileysVersion();
 
   const sock = makeWASocket({
@@ -1328,13 +1661,21 @@ async function startSock() {
     logger,
     printQRInTerminal: false
   });
+  activeSock = sock;
+
+  if (!controlInterval) {
+    controlInterval = setInterval(() => {
+      void checkResetRequest();
+    }, 4000);
+  }
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+  sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
     if (qr) {
       qrcodeTerminal.generate(qr, { small: true });
       void writeQrPng(qr);
+      await writeWaStatus('qr');
     }
 
     if (connection === 'open') {
@@ -1344,17 +1685,43 @@ async function startSock() {
       outboundInterval = setInterval(() => {
         void processOutboundQueue(sock);
       }, 5000);
+
+      const jid = sock?.user?.id || null;
+      const waNumber = extractWaNumber(jid);
+      await writeWaStatus('connected', {
+        jid,
+        wa_number: waNumber || null
+      });
+      await clearQrFile();
     }
 
     if (connection === 'close') {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+      if (isLoggedOut) {
+        forceRelogin = true;
+      }
+      const shouldReconnect = forceRelogin || !isLoggedOut;
       console.log(`Connection closed. Reconnect: ${shouldReconnect}`);
       sockReady = false;
       if (outboundInterval) {
         clearInterval(outboundInterval);
         outboundInterval = null;
       }
+
+      if (forceRelogin) {
+        forceRelogin = false;
+        try {
+          await fs.promises.rm(AUTH_DIR_PATH, { recursive: true, force: true });
+        } catch (err) {
+          logger.warn({ err }, 'Failed to clear WA auth data');
+        }
+      }
+
+      await writeWaStatus(isLoggedOut ? 'logged_out' : 'disconnected', {
+        reason: statusCode || null
+      });
+
       if (shouldReconnect) startSock();
     }
   });
@@ -1366,20 +1733,24 @@ async function startSock() {
 
     const remoteJid = msg.key.remoteJid;
     if (!remoteJid || remoteJid === 'status@broadcast') return;
-
-    if (msg.key.fromMe) {
-      if (!ALLOW_SELF) return;
-      const selfJid = sock?.user?.id;
-      if (!selfJid || !areJidsSameUser(remoteJid, selfJid)) return;
-    }
-
-    if (!ALLOW_GROUPS && isJidGroup(remoteJid)) return;
+    const isGroup = isJidGroup(remoteJid);
 
     const text = getMessageText(msg);
     if (!text) return;
 
     const trimmed = text.trim();
     if (!trimmed) return;
+
+    const isGroupIdCommand = /^!(groupid|gid)\b/i.test(trimmed);
+
+    if (msg.key.fromMe) {
+      if (!ALLOW_SELF) return;
+      const selfJid = sock?.user?.id;
+      const isSelfChat = selfJid && areJidsSameUser(remoteJid, selfJid);
+      if (!isSelfChat && !(isGroup && isGroupIdCommand)) return;
+    }
+
+    if (!ALLOW_GROUPS && isGroup && !isGroupIdCommand) return;
 
     let commandType = null;
     let firstWord = '';
@@ -1443,6 +1814,52 @@ async function startSock() {
     }
 
     try {
+      if (commandType === 'groupid') {
+        if (!isGroup) {
+          await sock.sendMessage(
+            remoteJid,
+            { text: formatSection('INFO', ['Perintah ini hanya bisa dipakai di grup.']) },
+            { quoted: msg }
+          );
+          return;
+        }
+
+          const adminNumber = await getAdminWaNumber();
+          const senderNumber = msg.key.fromMe
+            ? extractWaNumber(sock?.user?.id)
+            : getSenderWaNumber(msg);
+          if (adminNumber && senderNumber !== normalizePhoneNumber(adminNumber)) {
+            await sock.sendMessage(
+              remoteJid,
+              { text: formatSection('AKSES DITOLAK', ['Perintah ini khusus admin.']) },
+              { quoted: msg }
+            );
+          return;
+        }
+
+        const groupId = normalizeGroupJid(remoteJid);
+        await sock.sendMessage(
+          remoteJid,
+          { text: formatSection('ID GRUP', [`${groupId}`]) },
+          { quoted: msg }
+        );
+        return;
+      }
+
+      if (commandType === 'ai') {
+        const allowlist = await getAiGroupAllowlist();
+        if (allowlist.length > 0) {
+          const groupId = normalizeGroupJid(remoteJid);
+          if (isGroup) {
+            if (!allowlist.includes(groupId)) {
+              return;
+            }
+          } else {
+            return;
+          }
+        }
+      }
+
       if (commandType === 'stock') {
         if (!payload) {
           await sock.sendMessage(remoteJid, { text: helpText() }, { quoted: msg });
@@ -1454,7 +1871,9 @@ async function startSock() {
         if (!row) {
           await sock.sendMessage(
             remoteJid,
-            { text: `Belum ada data untuk item: ${item}` },
+            {
+              text: formatSection('DATA TIDAK DITEMUKAN', [`Item: ${item}`])
+            },
             { quoted: msg }
           );
           return;
@@ -1467,15 +1886,14 @@ async function startSock() {
         const cost = toNumber(row[5]) || 0;
         const profit = toNumber(row[6]) || 0;
 
-        const reply = [
-          `Item: ${item}`,
-          `Masuk: ${formatNumber(inQty)}`,
-          `Keluar: ${formatNumber(outQty)}`,
-          `Stok: ${formatNumber(stock)}`,
-          `Penjualan: ${formatRupiah(revenue)}`,
-          `Pembelian: ${formatRupiah(cost)}`,
-          `Profit: ${formatRupiah(profit)}`
-        ].join('\n');
+        const reply = buildStockReply(item, {
+          inQty,
+          outQty,
+          stock,
+          revenue,
+          cost,
+          profit
+        });
 
         await sock.sendMessage(remoteJid, { text: reply }, { quoted: msg });
         return;
@@ -1506,49 +1924,11 @@ async function startSock() {
           storeId: storeContext?.id
         });
 
-        const appliedAmount = payment.amount - (result?.remaining || 0);
-        const allocations = result?.allocations || [];
         const balance = await getPayableBalance(dbPool, storeContext?.id);
         const balanceValue = balance?.balance || 0;
 
-        const lines = [
-          `OK BAYAR MODAL: ${formatRupiah(payment.amount)}`,
-          `Terpakai: ${formatRupiah(appliedAmount)}`
-        ];
-
-        if (allocations.length > 0) {
-          lines.push('Rincian:');
-          const maxLines = 10;
-          const shown = allocations.slice(0, maxLines);
-          for (const entry of shown) {
-            const qtyPaid =
-              entry.costPrice > 0 ? entry.amount / entry.costPrice : 0;
-            lines.push(
-              `- ${entry.item} x${formatNumber(qtyPaid)} @ ${formatRupiah(
-                entry.costPrice
-              )} = ${formatRupiah(entry.amount)}`
-            );
-          }
-          if (allocations.length > maxLines) {
-            lines.push(`... dan ${allocations.length - maxLines} item lagi`);
-          }
-        } else {
-          lines.push('Tidak ada utang, semua jadi kredit.');
-        }
-
-        if ((result?.remaining || 0) > 0) {
-          lines.push(`Kredit: ${formatRupiah(result.remaining)}`);
-        }
-
-        if (balanceValue < 0) {
-          lines.push(`Sisa utang: ${formatRupiah(Math.abs(balanceValue))}`);
-        } else if (balanceValue > 0) {
-          lines.push(`Saldo kredit: ${formatRupiah(balanceValue)}`);
-        } else {
-          lines.push('Utang modal sudah lunas');
-        }
-
-        await sock.sendMessage(remoteJid, { text: lines.join('\n') }, { quoted: msg });
+        const reply = buildPaymentReply(payment, result, balanceValue);
+        await sock.sendMessage(remoteJid, { text: reply }, { quoted: msg });
         return;
       }
 
@@ -1573,68 +1953,21 @@ async function startSock() {
           trimmed,
           storeContext?.id
         );
-        if (result.error === 'missing_buy') {
-          await sock.sendMessage(
-            remoteJid,
-            {
-              text: `Harga beli belum ada. Contoh: ${exampleTrigger} tissu masuk 10 buah harga beli 2000 harga jual 3000`
-            },
-            { quoted: msg }
-          );
-          return;
-        }
-        if (result.error === 'missing_sell') {
-          await sock.sendMessage(
-            remoteJid,
-            {
-              text: `Harga jual untuk ${result.item} belum ada. Set dulu: ${exampleTrigger} ${result.item} masuk 10 harga beli 2000 harga jual 3000`
-            },
-            { quoted: msg }
-          );
-          return;
-        }
-        if (result.error === 'missing_cost') {
-          await sock.sendMessage(
-            remoteJid,
-            {
-              text: `Harga beli untuk ${result.item} belum ada. Catat dulu: ${exampleTrigger} ${result.item} masuk 10 harga beli 2000 harga jual 3000`
-            },
-            { quoted: msg }
-          );
-          return;
-        }
         if (result.error) {
+          const missingReply = buildMissingPriceReply(
+            result.error,
+            exampleTrigger,
+            String(result.item || 'barang')
+          );
+          if (missingReply) {
+            await sock.sendMessage(remoteJid, { text: missingReply }, { quoted: msg });
+            return;
+          }
           await sock.sendMessage(remoteJid, { text: helpText() }, { quoted: msg });
           return;
         }
 
-        let reply = '';
-        if (result.type === 'IN') {
-          const priceLine = result.sellPrice
-            ? `Harga beli: ${formatRupiah(result.buyPrice)}, Harga jual: ${formatRupiah(result.sellPrice)}`
-            : `Harga beli: ${formatRupiah(result.buyPrice)}`;
-          reply = [
-            `OK MASUK: ${result.item}`,
-            `Qty: ${formatNumber(result.qty)}`,
-            priceLine,
-            `Total: ${formatRupiah(result.total)}`
-          ].join('\n');
-        } else if (result.type === 'DAMAGE') {
-          reply = [
-            `OK RUSAK: ${result.item}`,
-            `Qty: ${formatNumber(result.qty)}`,
-            'Modal tidak ditagihkan'
-          ].join('\n');
-        } else {
-          const label = result.usedFallback ? 'Harga jual (default)' : 'Harga jual';
-          reply = [
-            `OK KELUAR: ${result.item}`,
-            `Qty: ${formatNumber(result.qty)}`,
-            `${label}: ${formatRupiah(result.sellPrice)}`,
-            `Total: ${formatRupiah(result.total)}`
-          ].join('\n');
-        }
-
+        const reply = buildTransactionReply(result);
         await sock.sendMessage(remoteJid, { text: reply }, { quoted: msg });
         return;
       }
@@ -1702,76 +2035,33 @@ async function startSock() {
         storeContext?.id
       );
 
-      if (result.error === 'missing_buy') {
-        await sock.sendMessage(
-          remoteJid,
-          {
-            text: `Harga beli belum ada. Contoh: ${exampleTrigger} tissu masuk 10 buah harga beli 2000 harga jual 3000`
-          },
-          { quoted: msg }
-        );
-        return;
-      }
-      if (result.error === 'missing_sell') {
-        await sock.sendMessage(
-          remoteJid,
-          {
-            text: `Harga jual untuk ${result.item} belum ada. Set dulu: ${exampleTrigger} ${result.item} masuk 10 harga beli 2000 harga jual 3000`
-          },
-          { quoted: msg }
-        );
-        return;
-      }
-      if (result.error === 'missing_cost') {
-        await sock.sendMessage(
-          remoteJid,
-          {
-            text: `Harga beli untuk ${result.item} belum ada. Catat dulu: ${exampleTrigger} ${result.item} masuk 10 harga beli 2000 harga jual 3000`
-          },
-          { quoted: msg }
-        );
-        return;
-      }
       if (result.error) {
+        const missingReply = buildMissingPriceReply(
+          result.error,
+          exampleTrigger,
+          String(result.item || 'barang')
+        );
+        if (missingReply) {
+          await sock.sendMessage(remoteJid, { text: missingReply }, { quoted: msg });
+          return;
+        }
         await sock.sendMessage(remoteJid, { text: helpText() }, { quoted: msg });
         return;
       }
 
-      let reply = '';
-      if (result.type === 'IN') {
-        const priceLine = result.sellPrice
-          ? `Harga beli: ${formatRupiah(result.buyPrice)}, Harga jual: ${formatRupiah(result.sellPrice)}`
-          : `Harga beli: ${formatRupiah(result.buyPrice)}`;
-        reply = [
-          `OK MASUK: ${result.item}`,
-          `Qty: ${formatNumber(result.qty)}`,
-          priceLine,
-          `Total: ${formatRupiah(result.total)}`
-        ].join('\n');
-      } else if (result.type === 'DAMAGE') {
-        reply = [
-          `OK RUSAK: ${result.item}`,
-          `Qty: ${formatNumber(result.qty)}`,
-          'Modal tidak ditagihkan'
-        ].join('\n');
-      } else {
-        const label = result.usedFallback ? 'Harga jual (default)' : 'Harga jual';
-        reply = [
-          `OK KELUAR: ${result.item}`,
-          `Qty: ${formatNumber(result.qty)}`,
-          `${label}: ${formatRupiah(result.sellPrice)}`,
-          `Total: ${formatRupiah(result.total)}`
-        ].join('\n');
-      }
-
+      const reply = buildTransactionReply(result);
       await sock.sendMessage(remoteJid, { text: reply }, { quoted: msg });
     } catch (err) {
       logger.error({ err }, 'Failed to handle message');
-      await sock.sendMessage(
-        remoteJid,
-        { text: 'Gagal simpan ke Google Sheet. Cek config dan izin.' },
-        { quoted: msg }
-      );
+      try {
+        await sock.sendMessage(
+          remoteJid,
+          { text: 'Gagal simpan ke Google Sheet. Cek config dan izin.' },
+          { quoted: msg }
+        );
+      } catch (sendErr) {
+        logger.warn({ err: sendErr }, 'Failed to send error reply');
+      }
     }
   });
 }

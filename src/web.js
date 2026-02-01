@@ -14,6 +14,7 @@ import {
   BUYER_ORDERS_TABLE,
   BUYER_ORDER_ITEMS_TABLE,
   OUTBOUND_MESSAGES_TABLE,
+  APP_SETTINGS_TABLE,
   PAYABLE_PAYMENTS_TABLE,
   PAYABLE_SUMMARY_VIEW,
   PRODUCTS_TABLE,
@@ -32,9 +33,14 @@ const sessionSecret = process.env.WEB_SESSION_SECRET || 'dev-secret';
 const sessionDays = Number(process.env.WEB_SESSION_DAYS || 7);
 const adminUser = process.env.WEB_ADMIN_USER || 'admin';
 const adminPassword = process.env.WEB_ADMIN_PASSWORD || '';
-const adminWaNumber = process.env.ADMIN_WA_NUMBER || '';
+const adminWaNumberEnv = String(process.env.ADMIN_WA_NUMBER || '').trim();
 const defaultStoreSlug = (process.env.DEFAULT_STORE_SLUG || 'dewi').toLowerCase();
 const publicBaseDomain = String(process.env.PUBLIC_BASE_DOMAIN || '').toLowerCase();
+const waAuthDir = process.env.WHATSAPP_AUTH_DIR || './auth_info';
+const waAuthPath = path.resolve(process.cwd(), waAuthDir);
+const waStatusPath = path.join(waAuthPath, 'wa_status.json');
+const waResetPath = path.join(waAuthPath, 'wa_reset.json');
+const waQrPath = path.resolve(process.cwd(), 'qr.png');
 const rupiah = new Intl.NumberFormat('id-ID', {
   style: 'currency',
   currency: 'IDR',
@@ -263,6 +269,105 @@ async function recordAudit({
   }
 }
 
+async function getSettingValue(key) {
+  try {
+    const result = await dbPool.query(
+      `SELECT value FROM ${APP_SETTINGS_TABLE} WHERE key = $1 LIMIT 1`,
+      [key]
+    );
+    return String(result.rows?.[0]?.value || '').trim() || null;
+  } catch (err) {
+    return null;
+  }
+}
+
+async function setSettingValue(key, value) {
+  if (value === null || value === undefined || value === '') {
+    await dbPool.query(
+      `DELETE FROM ${APP_SETTINGS_TABLE} WHERE key = $1`,
+      [key]
+    );
+    return;
+  }
+
+  await dbPool.query(
+    `
+    INSERT INTO ${APP_SETTINGS_TABLE} (key, value, updated_at)
+    VALUES ($1,$2,now())
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = now()
+    `,
+    [key, value]
+  );
+}
+
+async function getAdminWaSetting() {
+  const stored = await getSettingValue('admin_wa_number');
+  if (stored) {
+    return { value: stored, source: 'db' };
+  }
+  if (adminWaNumberEnv) {
+    return { value: adminWaNumberEnv, source: 'env' };
+  }
+  return { value: '', source: 'unset' };
+}
+
+function normalizeGroupJid(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  if (raw.includes('@')) return raw;
+  if (/^[0-9-]+$/.test(raw)) return `${raw}@g.us`;
+  return raw;
+}
+
+function parseGroupAllowlist(input) {
+  if (!input) return [];
+  let rawList = [];
+
+  if (Array.isArray(input)) {
+    rawList = input;
+  } else if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        rawList = parsed;
+      } else {
+        rawList = trimmed.split(/[\n,;]/g);
+      }
+    } catch (err) {
+      rawList = trimmed.split(/[\n,;]/g);
+    }
+  } else {
+    rawList = [input];
+  }
+
+  const normalized = rawList
+    .map((value) => normalizeGroupJid(value))
+    .filter(Boolean);
+  return Array.from(new Set(normalized));
+}
+
+async function readWaStatus() {
+  try {
+    const raw = await fs.readFile(waStatusPath, 'utf8');
+    return JSON.parse(raw);
+  } catch (err) {
+    return null;
+  }
+}
+
+async function getQrInfo() {
+  try {
+    const stat = await fs.stat(waQrPath);
+    return { exists: true, updated_at: stat.mtime?.toISOString() || null };
+  } catch (err) {
+    return { exists: false, updated_at: null };
+  }
+}
+
 app.get('/', (req, res) => {
   const storeKey = getStoreKeyFromHost(req);
   if (storeKey) {
@@ -311,6 +416,16 @@ app.get('/users', requirePageAuth, requireStoreSelection, requireAdminPage, (req
 app.get('/stores', requirePageAuth, requireStoreSelection, requireAdminPage, (req, res) => {
   res.sendFile(path.join(pagesDir, 'stores.html'));
 });
+
+app.get(
+  '/ai-settings',
+  requirePageAuth,
+  requireStoreSelection,
+  requireAdminPage,
+  (req, res) => {
+    res.sendFile(path.join(pagesDir, 'ai-settings.html'));
+  }
+);
 
 app.get('/order', (req, res) => {
   res.sendFile(path.join(pagesDir, 'buyer.html'));
@@ -579,7 +694,8 @@ app.post('/api/public/orders', async (req, res) => {
 
     const shippingFee = subtotal >= 20000 ? 0 : 1000;
     const total = subtotal + shippingFee;
-    const adminJid = toWhatsappJid(adminWaNumber);
+    const adminSetting = await getAdminWaSetting();
+    const adminJid = toWhatsappJid(adminSetting.value);
 
     const client = await dbPool.connect();
     try {
@@ -647,6 +763,119 @@ app.post('/api/public/orders', async (req, res) => {
 app.use('/api', requireApiAuth);
 app.use('/api/users', requireAdmin);
 
+app.get('/api/ai-settings', requireAdmin, async (req, res) => {
+  try {
+    const setting = await getAdminWaSetting();
+    const allowlistRaw = await getSettingValue('ai_group_allowlist');
+    const allowlist = parseGroupAllowlist(allowlistRaw);
+    res.json({
+      admin_wa_number: setting.value || '',
+      source: setting.source,
+      ai_group_allowlist: allowlist,
+      ai_group_allowlist_text: allowlist.join('\n')
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'failed_to_load' });
+  }
+});
+
+app.put('/api/ai-settings', requireAdmin, async (req, res) => {
+  const adminRaw = String(req.body?.admin_wa_number || '').trim();
+  const normalized = normalizePhoneNumber(adminRaw);
+  const nextValue = normalized || null;
+  const allowlistRaw = String(req.body?.ai_group_allowlist || '').trim();
+  const allowlist = parseGroupAllowlist(allowlistRaw);
+  const allowlistValue = allowlist.length ? JSON.stringify(allowlist) : null;
+
+  try {
+    const beforeAdmin = await getSettingValue('admin_wa_number');
+    const beforeAllowlist = parseGroupAllowlist(
+      await getSettingValue('ai_group_allowlist')
+    );
+    await setSettingValue('admin_wa_number', nextValue);
+    await setSettingValue('ai_group_allowlist', allowlistValue);
+
+    await recordAudit({
+      userId: req.session.user?.id,
+      action: 'UPDATE',
+      entity: 'setting',
+      entityId: 'ai_settings',
+      beforeData: {
+        admin_wa_number: beforeAdmin,
+        ai_group_allowlist: beforeAllowlist
+      },
+      afterData: {
+        admin_wa_number: nextValue,
+        ai_group_allowlist: allowlist
+      },
+      req
+    });
+
+    res.json({
+      admin_wa_number: nextValue || '',
+      ai_group_allowlist: allowlist
+    });
+  } catch (err) {
+    console.error('Failed to update AI settings', err);
+    res.status(500).json({ error: 'failed_to_update' });
+  }
+});
+
+app.get('/api/wa/status', requireAdmin, async (req, res) => {
+  try {
+    const [status, qrInfo] = await Promise.all([readWaStatus(), getQrInfo()]);
+    const resolvedStatus =
+      status?.status || (qrInfo.exists ? 'qr' : 'unknown');
+    res.json({
+      status: resolvedStatus,
+      updated_at: status?.updated_at || null,
+      wa_number: status?.wa_number || null,
+      jid: status?.jid || null,
+      reason: status?.reason || null,
+      qr_available: qrInfo.exists,
+      qr_updated_at: qrInfo.updated_at
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'failed_to_load' });
+  }
+});
+
+app.get('/api/wa/qr', requireAdmin, async (req, res) => {
+  try {
+    await fs.access(waQrPath);
+    res.setHeader('Cache-Control', 'no-store');
+    res.sendFile(waQrPath);
+  } catch (err) {
+    res.status(404).json({ error: 'qr_not_found' });
+  }
+});
+
+app.post('/api/wa/reset', requireAdmin, async (req, res) => {
+  try {
+    await fs.mkdir(waAuthPath, { recursive: true });
+    const payload = {
+      action: 'reset',
+      requested_at: new Date().toISOString(),
+      requested_by: req.session.user?.username || 'web'
+    };
+    await fs.writeFile(waResetPath, JSON.stringify(payload));
+
+    await recordAudit({
+      userId: req.session.user?.id,
+      action: 'UPDATE',
+      entity: 'wa_session',
+      entityId: 'reset',
+      afterData: payload,
+      req
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to request WA reset', err);
+    res.status(500).json({ error: 'failed_to_reset' });
+  }
+});
+
 app.get('/api/product-categories', async (req, res) => {
   const storeId = await resolveStoreId(req);
   const params = [];
@@ -686,7 +915,7 @@ function toNumber(value) {
     return Number.NaN;
   }
 
-  const negative = cleaned.startsWith('-') || cleaned.endsWith('-');
+  const negative = cleaned.startsWith('-');
   const unsigned = cleaned.replace(/-/g, '');
   const hasSeparator = /[.,]/.test(unsigned);
 
@@ -747,6 +976,34 @@ function toTransactionType(value) {
   const upper = raw.toUpperCase();
   if (['IN', 'OUT', 'DAMAGE'].includes(upper)) return upper;
   return null;
+}
+
+function normalizeDateOnly(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const parsed = new Date(`${raw}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  if (parsed.toISOString().slice(0, 10) !== raw) return null;
+  return raw;
+}
+
+function normalizeIsoDatetime(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+}
+
+function isValidDateRange(fromIso, toIso) {
+  if (!fromIso || !toIso) return false;
+  const fromDate = new Date(fromIso);
+  const toDate = new Date(toIso);
+  if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+    return false;
+  }
+  return fromDate.getTime() < toDate.getTime();
 }
 
 function pickPrice(...values) {
@@ -1502,6 +1759,9 @@ app.get('/api/transactions', async (req, res) => {
     : 100;
   const search = String(req.query.search || '').trim();
   const typeFilter = toTransactionType(req.query.type);
+  const rangeFrom = normalizeIsoDatetime(req.query.from);
+  const rangeTo = normalizeIsoDatetime(req.query.to);
+  const dateFilter = normalizeDateOnly(req.query.date);
   const storeId = await resolveStoreId(req);
 
   const params = [];
@@ -1520,6 +1780,21 @@ app.get('/api/transactions', async (req, res) => {
   if (search) {
     params.push(`%${search}%`);
     where.push(`t.item ILIKE $${params.length}`);
+  }
+
+  if (isValidDateRange(rangeFrom, rangeTo)) {
+    params.push(rangeFrom, rangeTo);
+    const fromIndex = params.length - 1;
+    const toIndex = params.length;
+    where.push(
+      `t.created_at >= $${fromIndex}::timestamptz AND t.created_at < $${toIndex}::timestamptz`
+    );
+  } else if (dateFilter) {
+    params.push(dateFilter);
+    const dateIndex = params.length;
+    where.push(
+      `t.created_at >= $${dateIndex}::date AND t.created_at < $${dateIndex}::date + interval '1 day'`
+    );
   }
 
   const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
