@@ -126,7 +126,7 @@
               <div class="card-head">
                 <div>
                   <h2>Tambah pengguna</h2>
-                  <p>Gunakan password kuat untuk akun baru.</p>
+                  <p>Gunakan password kuat dan pilih toko default jika perlu.</p>
                 </div>
                 <div class="badge badge-accent">Create</div>
               </div>
@@ -147,6 +147,13 @@
                       <option value="staff">Staff</option>
                     </select>
                   </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Default toko</span>
+                    <select class="select" name="default_store_id" id="create-default-store">
+                      <option value="">Tanpa default</option>
+                    </select>
+                    <span class="text-xs text-slate-500">User langsung masuk ke toko ini saat login.</span>
+                  </label>
                   <button class="primary" type="submit">Simpan user</button>
                 </form>
               </div>
@@ -156,7 +163,7 @@
               <div class="card-head">
                 <div>
                   <h2>Daftar pengguna</h2>
-                  <p>Klik baris untuk ubah role atau status aktif.</p>
+                  <p>Klik baris untuk ubah role, status, dan default toko.</p>
                 </div>
               </div>
               <div class="card-body">
@@ -166,8 +173,10 @@
                       <tr>
                         <th>Username</th>
                         <th>Role</th>
+                        <th>Default toko</th>
                         <th>Status</th>
                         <th>Terakhir login</th>
+                        <th>Dibuat</th>
                         <th>Aksi</th>
                       </tr>
                     </thead>
@@ -202,6 +211,12 @@
           <select class="select" name="role">
             <option value="admin">Admin</option>
             <option value="staff">Staff</option>
+          </select>
+        </label>
+        <label class="space-y-2">
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Default toko</span>
+          <select class="select" name="default_store_id" id="edit-default-store">
+            <option value="">Tanpa default</option>
           </select>
         </label>
         <label class="space-y-2">

@@ -343,14 +343,31 @@ async function ensureDatabase(pool) {
       username text NOT NULL UNIQUE,
       password_hash text NOT NULL,
       role text NOT NULL DEFAULT 'admin',
+      default_store_id bigint,
       created_at timestamptz NOT NULL DEFAULT now(),
-      last_login_at timestamptz
+      last_login_at timestamptz,
+      is_active boolean NOT NULL DEFAULT true
     )
   `);
 
   await pool.query(`
     ALTER TABLE ${USERS_TABLE}
-    ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true
+    ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true,
+    ADD COLUMN IF NOT EXISTS default_store_id bigint
+  `);
+
+  const userDefaultStoreFk = `${USERS_TABLE}_default_store_id_fkey`;
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '${userDefaultStoreFk}') THEN
+        ALTER TABLE ${USERS_TABLE}
+          ADD CONSTRAINT ${userDefaultStoreFk}
+          FOREIGN KEY (default_store_id)
+          REFERENCES ${STORES_TABLE}(id)
+          ON DELETE SET NULL;
+      END IF;
+    END $$;
   `);
 
   await pool.query(`

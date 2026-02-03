@@ -461,7 +461,7 @@ app.post('/api/login', async (req, res) => {
 
   try {
     const result = await dbPool.query(
-      `SELECT id, username, password_hash, role, is_active FROM ${USERS_TABLE} WHERE username = $1`,
+      `SELECT id, username, password_hash, role, is_active, default_store_id FROM ${USERS_TABLE} WHERE username = $1`,
       [username]
     );
     const user = result.rows?.[0];
@@ -482,6 +482,14 @@ app.post('/api/login', async (req, res) => {
     }
 
     req.session.user = { id: user.id, username: user.username, role: user.role };
+    req.session.activeStoreId = null;
+    const defaultStoreId = Number(user.default_store_id);
+    if (Number.isFinite(defaultStoreId) && defaultStoreId > 0) {
+      const activeDefaultId = await getActiveStoreIdById(defaultStoreId);
+      if (activeDefaultId) {
+        req.session.activeStoreId = activeDefaultId;
+      }
+    }
     await dbPool.query(
       `UPDATE ${USERS_TABLE} SET last_login_at = now() WHERE id = $1`,
       [user.id]
@@ -958,6 +966,35 @@ function toRole(value, fallback = null) {
   return null;
 }
 
+async function resolveUserDefaultStoreId(input) {
+  if (input === null || input === undefined || input === '') {
+    return { value: null };
+  }
+  const storeId = Number(input);
+  if (!Number.isFinite(storeId) || storeId <= 0) {
+    return { error: 'invalid_store' };
+  }
+
+  try {
+    const result = await dbPool.query(
+      `
+      SELECT id, is_active
+      FROM ${STORES_TABLE}
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [storeId]
+    );
+    const store = result.rows?.[0];
+    if (!store) return { error: 'store_not_found' };
+    if (store.is_active === false) return { error: 'store_inactive' };
+    return { value: store.id };
+  } catch (err) {
+    console.error('Failed to resolve default store', err);
+    return { error: 'store_lookup_failed' };
+  }
+}
+
 function toPayableMode(value, fallback = null) {
   if (value === null || value === undefined || value === '') return fallback;
   const mode = String(value).trim().toLowerCase();
@@ -1021,6 +1058,25 @@ const DEFAULT_STORE_CACHE_TTL_MS = 60000;
 function getSessionStoreId(req) {
   const raw = Number(req.session?.activeStoreId);
   return Number.isFinite(raw) ? raw : null;
+}
+
+async function getActiveStoreIdById(storeId) {
+  if (!storeId) return null;
+  try {
+    const result = await dbPool.query(
+      `
+      SELECT id
+      FROM ${STORES_TABLE}
+      WHERE id = $1 AND is_active = true
+      LIMIT 1
+      `,
+      [storeId]
+    );
+    return result.rows?.[0]?.id || null;
+  } catch (err) {
+    console.error('Failed to load active store', err);
+    return null;
+  }
 }
 
 async function getStoreById(storeId) {
@@ -2078,9 +2134,19 @@ app.get('/api/users', async (req, res) => {
   try {
     const result = await dbPool.query(
       `
-      SELECT id, username, role, is_active, created_at, last_login_at
-      FROM ${USERS_TABLE}
-      ORDER BY is_active DESC, username ASC
+      SELECT
+        u.id,
+        u.username,
+        u.role,
+        u.is_active,
+        u.created_at,
+        u.last_login_at,
+        u.default_store_id,
+        s.name AS default_store_name,
+        s.is_active AS default_store_active
+      FROM ${USERS_TABLE} u
+      LEFT JOIN ${STORES_TABLE} s ON s.id = u.default_store_id
+      ORDER BY u.is_active DESC, u.username ASC
       `
     );
     res.json({ data: result.rows });
@@ -2095,6 +2161,8 @@ app.post('/api/users', async (req, res) => {
   const password = String(req.body?.password || '');
   const role = toRole(req.body?.role, 'staff');
   const isActive = parseBoolean(req.body?.is_active);
+  const defaultStoreInput =
+    req.body?.default_store_id ?? req.body?.defaultStoreId;
 
   if (!username || !password) {
     res.status(400).json({ error: 'missing_fields' });
@@ -2112,15 +2180,28 @@ app.post('/api/users', async (req, res) => {
   }
 
   try {
+    const { value: defaultStoreId, error: storeError } =
+      await resolveUserDefaultStoreId(defaultStoreInput);
+    if (storeError) {
+      if (storeError === 'store_lookup_failed') {
+        res.status(500).json({ error: 'store_lookup_failed' });
+      } else if (storeError === 'store_not_found') {
+        res.status(404).json({ error: 'store_not_found' });
+      } else {
+        res.status(400).json({ error: storeError });
+      }
+      return;
+    }
+
     const hash = await bcrypt.hash(password, 10);
     const result = await dbPool.query(
       `
       INSERT INTO ${USERS_TABLE}
-        (username, password_hash, role, is_active, created_at)
-      VALUES ($1,$2,$3,$4,now())
-      RETURNING id, username, role, is_active, created_at, last_login_at
+        (username, password_hash, role, is_active, default_store_id, created_at)
+      VALUES ($1,$2,$3,$4,$5,now())
+      RETURNING id, username, role, is_active, default_store_id, created_at, last_login_at
       `,
-      [username, hash, role, isActive === null ? true : isActive]
+      [username, hash, role, isActive === null ? true : isActive, defaultStoreId]
     );
     const user = result.rows?.[0];
     if (user) {
@@ -2155,6 +2236,12 @@ app.put('/api/users/:id', async (req, res) => {
   const role = toRole(req.body?.role, null);
   const isActive = parseBoolean(req.body?.is_active);
   const password = req.body?.password ? String(req.body.password) : '';
+  const defaultStoreInput =
+    req.body?.default_store_id ?? req.body?.defaultStoreId;
+  const hasDefaultStoreInput =
+    Object.prototype.hasOwnProperty.call(req.body ?? {}, 'default_store_id') ||
+    Object.prototype.hasOwnProperty.call(req.body ?? {}, 'defaultStoreId');
+  let defaultStoreId = null;
 
   if (req.session.user?.id === id) {
     if (isActive === false) {
@@ -2178,6 +2265,22 @@ app.put('/api/users/:id', async (req, res) => {
   }
 
   try {
+    if (hasDefaultStoreInput) {
+      const { value, error: storeError } =
+        await resolveUserDefaultStoreId(defaultStoreInput);
+      if (storeError) {
+        if (storeError === 'store_lookup_failed') {
+          res.status(500).json({ error: 'store_lookup_failed' });
+        } else if (storeError === 'store_not_found') {
+          res.status(404).json({ error: 'store_not_found' });
+        } else {
+          res.status(400).json({ error: storeError });
+        }
+        return;
+      }
+      defaultStoreId = value;
+    }
+
     const beforeRes = await dbPool.query(
       `SELECT * FROM ${USERS_TABLE} WHERE id = $1`,
       [id]
@@ -2207,6 +2310,11 @@ app.put('/api/users/:id', async (req, res) => {
       params.push(isActive);
       idx += 1;
     }
+    if (hasDefaultStoreInput) {
+      fields.push(`default_store_id = $${idx}`);
+      params.push(defaultStoreId);
+      idx += 1;
+    }
     if (password) {
       const hash = await bcrypt.hash(password, 10);
       fields.push(`password_hash = $${idx}`);
@@ -2224,7 +2332,7 @@ app.put('/api/users/:id', async (req, res) => {
       UPDATE ${USERS_TABLE}
       SET ${fields.join(', ')}
       WHERE id = $1
-      RETURNING id, username, role, is_active, created_at, last_login_at
+      RETURNING id, username, role, is_active, default_store_id, created_at, last_login_at
       `,
       params
     );
