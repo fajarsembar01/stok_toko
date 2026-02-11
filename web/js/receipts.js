@@ -46,6 +46,9 @@ const state = {
   store: null,
   method: 'cash',
   cashReceived: 0,
+  dirty: true,
+  saved: false,
+  saving: false,
   helpers: {
     bankName: '',
     bankAccount: '',
@@ -76,6 +79,11 @@ function pickSellPrice(product) {
 function getHelperKey() {
   const storeId = getActiveStoreId();
   return `${HELPER_STORAGE_PREFIX}${storeId || 'default'}`;
+}
+
+function markDirty() {
+  state.dirty = true;
+  state.saved = false;
 }
 
 function loadHelpers() {
@@ -372,6 +380,8 @@ function resetForm() {
   state.items = [];
   state.receiptId = generateReceiptId();
   state.cashReceived = 0;
+  state.dirty = true;
+  state.saved = false;
   if (itemForm) itemForm.reset();
   if (productInput) productInput.value = '';
   if (itemQtyInput) itemQtyInput.value = '1';
@@ -417,10 +427,12 @@ if (itemForm) {
     state.items.push({
       name,
       unit,
+      productId: product?.id || null,
       qty,
       price
     });
 
+    markDirty();
     if (productInput) productInput.value = '';
     if (itemPriceInput) itemPriceInput.value = '';
     if (itemQtyInput) itemQtyInput.value = '1';
@@ -443,6 +455,7 @@ if (itemRows) {
     const index = Number(button.dataset.index);
     if (!Number.isFinite(index)) return;
     state.items.splice(index, 1);
+    markDirty();
     renderItemsTable();
     renderReceipt();
   });
@@ -461,6 +474,7 @@ if (itemRows) {
       const price = toNumber(target.value);
       state.items[index].price = Number.isFinite(price) && price > 0 ? price : 0;
     }
+    markDirty();
     renderItemsTable();
     renderReceipt();
   });
@@ -485,8 +499,69 @@ if (cashReceivedInput) {
   input.addEventListener('input', updateHelperState);
 });
 
+function setPrintLoading(loading) {
+  if (!printBtn) return;
+  printBtn.disabled = loading;
+  printBtn.textContent = loading ? 'Menyimpan...' : 'Print';
+}
+
+async function saveReceiptTransactions() {
+  if (!state.items.length) {
+    throw new Error('empty_items');
+  }
+
+  const note = state.receiptId ? `receipt ${state.receiptId}` : 'receipt';
+
+  for (let idx = 0; idx < state.items.length; idx += 1) {
+    const item = state.items[idx];
+    const payload = {
+      type: 'OUT',
+      qty: item.qty,
+      sell_price: item.price,
+      note
+    };
+    if (item.productId) {
+      payload.product_id = item.productId;
+    } else {
+      payload.item = item.name;
+    }
+    await fetchJson('/api/transactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  }
+}
+
 if (printBtn) {
-  printBtn.addEventListener('click', () => {
+  printBtn.addEventListener('click', async () => {
+    if (!state.items.length) {
+      showToast('Tambah item dulu sebelum print.', true);
+      return;
+    }
+    if (state.saving) return;
+
+    if (!state.saved || state.dirty) {
+      try {
+        state.saving = true;
+        setPrintLoading(true);
+        await saveReceiptTransactions();
+        state.saved = true;
+        state.dirty = false;
+        showToast('Transaksi tersimpan. Siap cetak struk.');
+      } catch (err) {
+        const message =
+          err?.message === 'missing_cost'
+            ? 'Harga modal belum diisi untuk salah satu produk.'
+            : 'Gagal menyimpan transaksi. Coba lagi.';
+        showToast(message, true);
+        return;
+      } finally {
+        state.saving = false;
+        setPrintLoading(false);
+      }
+    }
+
     window.print();
   });
 }
