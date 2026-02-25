@@ -242,9 +242,9 @@ function renderTransactions() {
             <div class="cell-meta">${escapeHtml(tx.unit || '-') }</div>
           </td>
           <td>${formatNumber(tx.qty)}</td>
-          <td>${formatCurrency(tx.unit_price)}</td>
+          <td class="optional-col">${formatCurrency(tx.unit_price)}</td>
           <td>${formatCurrency(tx.total)}</td>
-          <td>${note}</td>
+          <td class="optional-col">${note}</td>
         </tr>
       `;
     })

@@ -430,14 +430,14 @@ function renderTable() {
               <div class="cell-title">${escapeHtml(product.name)}</div>
               <div class="cell-meta">${escapeHtml(product.unit || '-')}</div>
             </td>
-            <td>${escapeHtml(product.category || '-')}</td>
+            <td class="optional-col">${escapeHtml(product.category || '-')}</td>
             <td>${formatNumber(product.stock)}</td>
-            <td>${formatCurrency(buyPrice)}</td>
+            <td class="optional-col">${formatCurrency(buyPrice)}</td>
             <td>${formatCurrency(sellPrice)}</td>
-            <td>${formatCurrency(product.revenue)}</td>
-          <td>${formatCurrency(product.profit)}</td>
-          <td><span class="status-pill ${payableClass}">${payableMode}</span></td>
-          <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
+            <td class="optional-col">${formatCurrency(product.revenue)}</td>
+          <td class="optional-col">${formatCurrency(product.profit)}</td>
+          <td class="optional-col"><span class="status-pill ${payableClass}">${payableMode}</span></td>
+          <td class="optional-col"><span class="status-pill ${statusClass}">${statusLabel}</span></td>
           <td>
             <div class="flex flex-wrap gap-2">
               <button class="ghost" data-action="edit">Edit</button>

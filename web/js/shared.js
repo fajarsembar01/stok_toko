@@ -160,6 +160,41 @@ function initAccountMenu() {
   });
 }
 
+let detailToggleInited = false;
+function initDetailToggle() {
+  if (detailToggleInited) return;
+  detailToggleInited = true;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'detail-toggle-btn';
+
+  const updateLabel = () => {
+    const showing = document.documentElement.classList.contains('show-details');
+    btn.textContent = showing ? 'Sembunyikan detail' : 'Tampilkan detail';
+  };
+
+  btn.addEventListener('click', () => {
+    document.documentElement.classList.toggle('show-details');
+    updateLabel();
+  });
+
+  // Hanya tampil di mobile; sembunyikan otomatis saat layar besar
+  const media = window.matchMedia('(max-width: 768px)');
+  const syncVisibility = () => {
+    if (media.matches) {
+      btn.style.display = 'inline-flex';
+    } else {
+      btn.style.display = 'none';
+      document.documentElement.classList.remove('show-details');
+    }
+    updateLabel();
+  };
+  media.addEventListener('change', syncVisibility);
+  syncVisibility();
+
+  document.body.appendChild(btn);
+}
+
 export function showToast(message, isError = false) {
   const toast = document.getElementById('toast');
   if (!toast) return;
@@ -469,6 +504,7 @@ export async function initNav(activePage) {
   initMobileNav();
   initAccountMenu();
   initCurrencyInputs();
+  initDetailToggle();
   await initStoreSelector();
   fetchMe();
 }

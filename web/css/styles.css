@@ -52,6 +52,49 @@
   --tw-contain-style:  ;
 }
 
+/* === Mobile compact tweaks === */
+@media (max-width: 768px) {
+  .card {
+    padding: 12px;
+  }
+  .card-head h2 {
+    font-size: 16px;
+  }
+  .card-body {
+    padding: 8px 0;
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+  /* Sembunyikan kolom opsional di mobile */
+  .table-compact th.optional-col,
+  .table-compact td.optional-col {
+    display: none;
+  }
+  /* Saat user menyalakan tombol Detail */
+  .show-details .table-compact th.optional-col,
+  .show-details .table-compact td.optional-col {
+    display: table-cell;
+  }
+  /* Tombol toggle detail */
+  .detail-toggle-btn {
+    position: fixed;
+    bottom: 80px;
+    right: 14px;
+    z-index: 1100;
+    background: #0f172a;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 14px;
+    font-size: 13px;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2);
+  }
+  .detail-toggle-btn:active {
+    transform: scale(0.98);
+  }
+}
+
 ::backdrop {
   --tw-border-spacing-x: 0;
   --tw-border-spacing-y: 0;
