@@ -66,6 +66,26 @@
   .table-wrap {
     overflow-x: auto;
   }
+  /* Pastikan tabel tidak memecah kata secara vertikal */
+  .table,
+  .table-compact {
+    table-layout: auto;
+    font-size: 13px;
+    border-spacing: 0;
+    width: max-content;
+  }
+  .table-compact th,
+  .table-compact td {
+    white-space: nowrap;
+    word-break: normal;
+    padding: 6px 8px;
+  }
+  .table-compact .cell-title {
+    font-size: 13px;
+  }
+  .table-compact .cell-meta {
+    font-size: 11px;
+  }
   /* Sembunyikan kolom opsional di mobile */
   .table-compact th.optional-col,
   .table-compact td.optional-col {
