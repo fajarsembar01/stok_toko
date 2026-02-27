@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
-  <body class="app-shell">
+  <body class="app-shell panel-page transactions-page">
     <div class="app-bg"></div>
     <div class="app-layout">
       <aside class="app-sidebar">
@@ -113,6 +113,7 @@
         <main class="page">
           <section class="transactions-grid form-hidden" id="transactions-grid">
             <div class="card hidden" id="transaction-card">
+              <div class="sheet-grab" aria-hidden="true"></div>
               <div class="card-head">
                 <div>
                   <h2>Transaksi baru</h2>
@@ -174,35 +175,159 @@
             </div>
 
             <div class="card">
-              <div class="card-head">
+              <div class="card-head transactions-list-head">
                 <div>
                   <h2>Riwayat transaksi</h2>
                   <p>Transaksi terbaru toko aktif.</p>
                 </div>
-                <div class="filter-bar">
-                  <button
-                    class="ghost h-10 w-10 p-0 text-lg"
-                    id="refresh-btn"
-                    type="button"
-                    aria-label="Refresh"
-                    title="Refresh"
-                  >
-                    &#x21bb;
-                  </button>
-                  <input id="search-input" class="input input-compact w-44" placeholder="Cari" />
-                  <input
-                    id="filter-date"
-                    class="input input-compact w-44"
-                    type="date"
-                    aria-label="Tanggal"
-                    title="Tanggal"
-                  />
-                  <select id="filter-type" class="select select-compact-tight" aria-label="Tipe" title="Tipe">
-                    <option value="">Semua</option>
-                    <option value="IN">Masuk</option>
-                    <option value="OUT">Jual</option>
-                    <option value="DAMAGE">Rusak</option>
-                  </select>
+                <div class="transactions-head-controls">
+                  <div class="compact-filter-panel">
+                    <div class="compact-filter-bar">
+                      <div class="compact-filter-search-wrap">
+                        <span class="compact-filter-search-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" focusable="false">
+                            <path
+                              d="M21 21l-4.35-4.35M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="1.8"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            ></path>
+                          </svg>
+                        </span>
+                        <input
+                          id="search-input"
+                          type="search"
+                          class="input input-compact compact-filter-search"
+                          placeholder="Cari transaksi"
+                          aria-label="Cari transaksi"
+                          autocomplete="off"
+                        />
+                        <button
+                          class="compact-filter-clear hidden"
+                          id="search-clear"
+                          type="button"
+                          aria-label="Hapus pencarian"
+                          title="Hapus pencarian"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                      <button
+                        class="icon-btn compact-filter-toggle"
+                        id="filter-toggle-btn"
+                        type="button"
+                        aria-label="Tampilkan filter dan urutan"
+                        title="Tampilkan filter dan urutan"
+                        aria-controls="filter-advanced"
+                        aria-expanded="false"
+                      >
+                        <svg class="icon-symbol" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                          <path
+                            d="M4 6h16M7 12h10M10 18h4"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          ></path>
+                        </svg>
+                        <span class="sr-only">Filter</span>
+                      </button>
+                    </div>
+                    <div class="compact-filter-advanced hidden" id="filter-advanced">
+                      <input
+                        id="filter-date"
+                        class="input input-compact compact-filter-date"
+                        type="date"
+                        aria-label="Tanggal"
+                        title="Tanggal"
+                      />
+                      <select
+                        id="filter-type"
+                        class="select select-compact-tight compact-filter-select"
+                        aria-label="Tipe"
+                        title="Tipe"
+                      >
+                        <option value="">Semua tipe</option>
+                        <option value="IN">Masuk</option>
+                        <option value="OUT">Jual</option>
+                        <option value="DAMAGE">Rusak</option>
+                      </select>
+                      <button
+                        class="icon-btn compact-filter-refresh"
+                        id="refresh-btn"
+                        type="button"
+                        aria-label="Refresh"
+                        title="Refresh"
+                      >
+                        <span class="icon-symbol" aria-hidden="true">&#x21bb;</span>
+                        <span class="sr-only">Refresh</span>
+                      </button>
+                      <div class="compact-sort-row hidden" id="sort-chip-row" role="toolbar" aria-label="Urutkan transaksi">
+                        <button
+                          class="icon-btn sort-chip active"
+                          id="sort-time-btn"
+                          type="button"
+                          data-sort-key="time"
+                          aria-label="Urutkan waktu"
+                          title="Urutkan waktu"
+                        >
+                          <svg class="icon-symbol" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path
+                              d="M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="1.8"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            ></path>
+                          </svg>
+                          <span class="sr-only">Waktu</span>
+                        </button>
+                        <button
+                          class="icon-btn sort-chip"
+                          id="sort-total-btn"
+                          type="button"
+                          data-sort-key="total"
+                          aria-label="Urutkan total"
+                          title="Urutkan total"
+                        >
+                          <svg class="icon-symbol" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path
+                              d="M7 16h10M7 12h8M7 8h6M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="1.8"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            ></path>
+                          </svg>
+                          <span class="sr-only">Total</span>
+                        </button>
+                        <button
+                          class="icon-btn sort-direction-btn"
+                          id="sort-direction-btn"
+                          type="button"
+                          aria-label="Urutan turun"
+                          title="Urutan turun"
+                        >
+                          <svg class="icon-symbol" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path
+                              d="M12 5v14M7 14l5 5 5-5"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="1.8"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            ></path>
+                          </svg>
+                          <span class="sr-only">Arah urutan</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="card-body">
@@ -222,10 +347,13 @@
                     <tbody id="transaction-rows"></tbody>
                   </table>
                 </div>
+                <div class="transactions-mobile-list" id="transaction-mobile-list"></div>
               </div>
             </div>
           </section>
         </main>
+
+        <div class="transaction-backdrop hidden" id="transaction-backdrop"></div>
 
         <button
           class="fab-toggle"
@@ -245,4 +373,5 @@
     <script type="module" src="/js/transactions.js"></script>
   </body>
 </html>
+
 

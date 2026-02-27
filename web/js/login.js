@@ -2,6 +2,40 @@ import { initThemeToggle } from './shared.js';
 
 const form = document.getElementById('login-form');
 const errorBox = document.getElementById('login-error');
+const passwordInput = document.getElementById('login-password');
+const passwordToggle = document.getElementById('password-toggle');
+
+function bindPasswordToggle() {
+  if (!(passwordInput instanceof HTMLInputElement) || !(passwordToggle instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  const eye = passwordToggle.querySelector('.password-toggle-eye');
+  const eyeOff = passwordToggle.querySelector('.password-toggle-eye-off');
+
+  const syncState = () => {
+    const shown = passwordInput.type === 'text';
+    passwordToggle.setAttribute('aria-pressed', shown ? 'true' : 'false');
+    passwordToggle.setAttribute('aria-label', shown ? 'Sembunyikan password' : 'Tampilkan password');
+    passwordToggle.setAttribute('title', shown ? 'Sembunyikan password' : 'Tampilkan password');
+    if (eye) eye.classList.toggle('hidden', shown);
+    if (eyeOff) eyeOff.classList.toggle('hidden', !shown);
+  };
+
+  passwordToggle.addEventListener('click', () => {
+    passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+    syncState();
+    passwordInput.focus();
+    try {
+      const length = passwordInput.value.length;
+      passwordInput.setSelectionRange(length, length);
+    } catch (err) {
+      // Ignore unsupported cursor APIs.
+    }
+  });
+
+  syncState();
+}
 
 async function redirectIfLoggedIn() {
   try {
@@ -52,3 +86,4 @@ form.addEventListener('submit', async (event) => {
 
 redirectIfLoggedIn();
 initThemeToggle();
+bindPasswordToggle();

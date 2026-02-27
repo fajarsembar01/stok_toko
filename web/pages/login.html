@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
-  <body class="app-shell">
+  <body class="app-shell auth-page login-page">
     <div class="app-bg"></div>
     <div class="min-h-screen">
       <header class="topbar">
@@ -69,7 +69,54 @@
               </label>
               <label class="space-y-2">
                 <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Password</span>
-                <input class="input" type="password" name="password" placeholder="Password" required />
+                <div class="password-field">
+                  <input
+                    class="input password-input"
+                    id="login-password"
+                    type="password"
+                    name="password"
+                    placeholder="Password"
+                    required
+                  />
+                  <button
+                    class="password-toggle-btn"
+                    id="password-toggle"
+                    type="button"
+                    aria-label="Tampilkan password"
+                    aria-pressed="false"
+                    title="Tampilkan password"
+                  >
+                    <svg class="password-toggle-eye" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path
+                        d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      ></path>
+                      <path
+                        d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      ></path>
+                    </svg>
+                    <svg class="password-toggle-eye-off hidden" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path
+                        d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.6A10.5 10.5 0 0 1 12 5.4c6.5 0 10 6.6 10 6.6a17.3 17.3 0 0 1-4.1 4.8M6.1 8.2A17.9 17.9 0 0 0 2 12s3.5 6.6 10 6.6a10.7 10.7 0 0 0 3.2-.5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      ></path>
+                    </svg>
+                    <span class="sr-only">Toggle password</span>
+                  </button>
+                </div>
               </label>
               <button class="primary" type="submit">Login</button>
               <p id="login-error" class="text-sm text-rose-500"></p>
@@ -82,3 +129,4 @@
     <script type="module" src="/js/login.js"></script>
   </body>
 </html>
+

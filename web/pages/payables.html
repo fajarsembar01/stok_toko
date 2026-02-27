@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
-  <body class="app-shell">
+  <body class="app-shell panel-page payables-page">
     <div class="app-bg"></div>
     <div class="app-layout">
       <aside class="app-sidebar">
@@ -117,7 +117,16 @@
               <p>Bayar modal setelah barang terjual, dengan saldo kredit otomatis.</p>
             </div>
             <div class="page-actions">
-              <button class="ghost" id="refresh-btn">Refresh</button>
+              <button
+                class="ghost action-icon-btn"
+                id="refresh-btn"
+                type="button"
+                aria-label="Refresh data modal"
+                title="Refresh data modal"
+              >
+                <span class="action-icon-symbol" aria-hidden="true">&#x21bb;</span>
+                <span class="action-icon-text">Refresh</span>
+              </button>
             </div>
           </section>
 
@@ -188,6 +197,7 @@
                     <tbody id="payable-rows"></tbody>
                   </table>
                 </div>
+                <div class="payables-mobile-list" id="payables-mobile-list"></div>
               </div>
               <div class="space-y-4">
                 <h3>Riwayat pembayaran</h3>
@@ -203,4 +213,5 @@
     <script type="module" src="/js/payables.js"></script>
   </body>
 </html>
+
 

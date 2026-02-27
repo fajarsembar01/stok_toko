@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
-  <body class="app-shell">
+  <body class="app-shell panel-page users-page">
     <div class="app-bg"></div>
     <div class="app-layout">
       <aside class="app-sidebar">
@@ -117,7 +117,16 @@
               <p>Buat akun admin atau staff, lalu atur hak akses.</p>
             </div>
             <div class="page-actions">
-              <button class="ghost" id="refresh-btn">Refresh</button>
+              <button
+                class="ghost action-icon-btn"
+                id="refresh-btn"
+                type="button"
+                aria-label="Refresh pengguna"
+                title="Refresh pengguna"
+              >
+                <span class="action-icon-symbol" aria-hidden="true">&#x21bb;</span>
+                <span class="action-icon-text">Refresh</span>
+              </button>
             </div>
           </section>
 
@@ -183,6 +192,7 @@
                     <tbody id="user-rows"></tbody>
                   </table>
                 </div>
+                <div class="entity-mobile-list" id="user-mobile-list"></div>
               </div>
             </div>
           </section>
@@ -192,12 +202,22 @@
 
     <div class="drawer-backdrop hidden" id="drawer-backdrop"></div>
     <aside class="drawer" id="drawer">
+      <div class="sheet-grab" aria-hidden="true"></div>
       <div class="drawer-header">
         <div>
           <p class="eyebrow">Detail pengguna</p>
           <h3 id="drawer-title">Edit pengguna</h3>
         </div>
-        <button class="ghost" id="close-drawer">Close</button>
+        <button
+          class="ghost drawer-close-btn"
+          id="close-drawer"
+          type="button"
+          aria-label="Tutup detail"
+          title="Tutup detail"
+        >
+          &times;
+          <span class="sr-only">Tutup detail</span>
+        </button>
       </div>
       <div class="drawer-summary" id="drawer-summary"></div>
       <form id="edit-form" class="form-stack drawer-form px-6 py-6">
@@ -238,4 +258,5 @@
     <script type="module" src="/js/users.js"></script>
   </body>
 </html>
+
 

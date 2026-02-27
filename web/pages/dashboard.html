@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
-  <body class="app-shell">
+  <body class="app-shell panel-page dashboard-page">
     <div class="app-bg"></div>
     <div class="app-layout">
       <aside class="app-sidebar">
@@ -118,7 +118,84 @@
             </div>
             <div class="page-actions">
               <span class="status-pill" id="status-pill">DB ready</span>
-              <button class="ghost" id="refresh-btn">Refresh</button>
+              <button
+                class="ghost action-icon-btn"
+                id="refresh-btn"
+                type="button"
+                aria-label="Refresh dashboard"
+                title="Refresh dashboard"
+              >
+                <span class="action-icon-symbol" aria-hidden="true">&#x21bb;</span>
+                <span class="action-icon-text">Refresh</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="card super-home-card">
+            <div class="card-head">
+              <div>
+                <h2>Home super app</h2>
+                <p>Snapshot cepat untuk keputusan harian toko.</p>
+              </div>
+              <button
+                class="ghost action-icon-btn"
+                id="super-refresh-btn"
+                type="button"
+                aria-label="Refresh home super app"
+                title="Refresh home super app"
+              >
+                <span class="action-icon-symbol" aria-hidden="true">&#x21bb;</span>
+                <span class="action-icon-text">Refresh</span>
+              </button>
+            </div>
+            <div class="card-body">
+              <div class="super-home-grid">
+                <article class="super-mini-card">
+                  <p class="eyebrow">Omzet hari ini</p>
+                  <h3 id="super-omzet">Rp 0</h3>
+                </article>
+                <article class="super-mini-card">
+                  <p class="eyebrow">Transaksi hari ini</p>
+                  <h3 id="super-today-count">0</h3>
+                </article>
+                <article class="super-mini-card">
+                  <p class="eyebrow">Stok kritis</p>
+                  <h3 id="super-critical-count">0</h3>
+                </article>
+                <article class="super-mini-card">
+                  <p class="eyebrow">Jatuh tempo modal</p>
+                  <h3 id="super-payable-due">Rp 0</h3>
+                </article>
+              </div>
+
+              <div class="super-quick-actions">
+                <a class="super-quick-btn" href="/products?quick=create">
+                  <span aria-hidden="true">+</span>
+                  <span>Tambah barang</span>
+                </a>
+                <a class="super-quick-btn" href="/transactions?quick=create">
+                  <span aria-hidden="true">+</span>
+                  <span>Input transaksi</span>
+                </a>
+                <a class="super-quick-btn" href="/receipts?quick=focus">
+                  <span aria-hidden="true">&#x2399;</span>
+                  <span>Cetak struk</span>
+                </a>
+                <a class="super-quick-btn" href="/payables?quick=payment">
+                  <span aria-hidden="true">&#x20B1;</span>
+                  <span>Bayar modal</span>
+                </a>
+              </div>
+
+              <div class="super-critical-wrap">
+                <div class="super-critical-head">
+                  <h3>Prioritas stok kritis</h3>
+                  <a class="ghost" href="/products?stock=critical">Buka produk</a>
+                </div>
+                <div class="super-critical-list" id="super-critical-list">
+                  <div class="audit-mobile-empty">Belum ada barang kritis.</div>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -190,6 +267,7 @@
                   <tbody id="audit-rows"></tbody>
                 </table>
               </div>
+              <div class="audit-mobile-list" id="audit-mobile-list"></div>
             </div>
           </section>
         </main>
@@ -200,4 +278,5 @@
     <script type="module" src="/js/dashboard.js"></script>
   </body>
 </html>
+
 

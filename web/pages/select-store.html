@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
-  <body class="app-shell">
+  <body class="app-shell auth-page select-store-page">
     <div class="app-bg"></div>
     <div class="min-h-screen">
       <header class="topbar">
@@ -56,7 +56,16 @@
             <p>Tentukan toko yang akan kamu kelola sebelum masuk dashboard.</p>
           </div>
           <div class="page-actions">
-            <button class="ghost" id="refresh-btn">Refresh</button>
+            <button
+              class="ghost action-icon-btn"
+              id="refresh-btn"
+              type="button"
+              aria-label="Refresh toko"
+              title="Refresh toko"
+            >
+              <span class="action-icon-symbol" aria-hidden="true">&#x21bb;</span>
+              <span class="action-icon-text">Refresh</span>
+            </button>
           </div>
         </section>
 
@@ -79,3 +88,4 @@
     <script type="module" src="/js/select-store.js"></script>
   </body>
 </html>
+

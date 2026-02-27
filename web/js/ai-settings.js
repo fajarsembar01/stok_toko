@@ -1,7 +1,9 @@
 import {
   fetchJson,
+  initPullToRefresh,
   initNav,
-  showToast
+  showToast,
+  triggerSwipeFeedback
 } from './shared.js';
 
 const form = document.getElementById('wa-form');
@@ -18,6 +20,7 @@ const qrUpdated = document.getElementById('qr-updated');
 const refreshBtn = document.getElementById('refresh-btn');
 const refreshQrBtn = document.getElementById('refresh-qr');
 const resetBtn = document.getElementById('reset-wa');
+const connectionCard = document.getElementById('wa-connection-card');
 
 const statusClasses = ['status-active', 'status-inactive', 'status-credit'];
 
@@ -127,8 +130,107 @@ async function loadStatus() {
   }
 }
 
+async function refreshQrStatus() {
+  await loadStatus();
+}
+
+async function resetWaConnection({ withConfirm = true } = {}) {
+  if (withConfirm) {
+    const ok = window.confirm(
+      'Reset koneksi WhatsApp? Bot akan meminta QR baru.'
+    );
+    if (!ok) return false;
+  }
+
+  try {
+    const res = await fetchJson('/api/wa/reset', { method: 'POST' });
+    if (!res) return false;
+    showToast('Reset diminta. Tunggu QR baru.');
+    await loadStatus();
+    return true;
+  } catch (err) {
+    showToast('Gagal reset koneksi.', true);
+    return false;
+  }
+}
+
 async function refreshAll() {
   await Promise.all([loadSettings(), loadStatus()]);
+}
+
+function bindWaCardSwipeActions() {
+  if (!connectionCard || connectionCard.dataset.swipeBound === 'true') return;
+  connectionCard.dataset.swipeBound = 'true';
+
+  const swipe = {
+    startX: 0,
+    startY: 0,
+    offsetX: 0,
+    dragging: false
+  };
+
+  connectionCard.addEventListener(
+    'touchstart',
+    (event) => {
+      if (event.touches.length !== 1) return;
+      swipe.startX = event.touches[0].clientX;
+      swipe.startY = event.touches[0].clientY;
+      swipe.offsetX = 0;
+      swipe.dragging = false;
+    },
+    { passive: true }
+  );
+
+  connectionCard.addEventListener(
+    'touchmove',
+    (event) => {
+      if (event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - swipe.startX;
+      const deltaY = touch.clientY - swipe.startY;
+
+      if (!swipe.dragging) {
+        if (Math.abs(deltaX) < 8 && Math.abs(deltaY) < 8) return;
+        if (Math.abs(deltaX) <= Math.abs(deltaY) + 6) return;
+        swipe.dragging = true;
+        connectionCard.classList.add('is-swiping');
+        connectionCard.style.transition = 'none';
+      }
+
+      swipe.offsetX = Math.max(-82, Math.min(82, deltaX));
+      connectionCard.style.transform = `translateX(${swipe.offsetX}px)`;
+      event.preventDefault();
+    },
+    { passive: false }
+  );
+
+  const finishSwipe = () => {
+    const delta = swipe.offsetX;
+    const shouldRefresh = delta >= 58;
+    const shouldReset = delta <= -58;
+
+    connectionCard.classList.remove('is-swiping');
+    connectionCard.style.transition = 'transform 160ms ease';
+    connectionCard.style.transform = 'translateX(0px)';
+    window.setTimeout(() => {
+      connectionCard.style.transition = '';
+      connectionCard.style.transform = '';
+    }, 170);
+
+    swipe.offsetX = 0;
+    swipe.dragging = false;
+
+    if (shouldRefresh) {
+      triggerSwipeFeedback(connectionCard, 'success');
+      void refreshQrStatus();
+    } else if (shouldReset) {
+      triggerSwipeFeedback(connectionCard, 'danger');
+      void resetWaConnection({ withConfirm: true });
+    }
+  };
+
+  connectionCard.addEventListener('touchend', finishSwipe);
+  connectionCard.addEventListener('touchcancel', finishSwipe);
 }
 
 form.addEventListener('submit', async (event) => {
@@ -158,24 +260,12 @@ if (refreshBtn) {
 }
 
 if (refreshQrBtn) {
-  refreshQrBtn.addEventListener('click', loadStatus);
+  refreshQrBtn.addEventListener('click', refreshQrStatus);
 }
 
 if (resetBtn) {
   resetBtn.addEventListener('click', async () => {
-    const ok = window.confirm(
-      'Reset koneksi WhatsApp? Bot akan meminta QR baru.'
-    );
-    if (!ok) return;
-
-    try {
-      const res = await fetchJson('/api/wa/reset', { method: 'POST' });
-      if (!res) return;
-      showToast('Reset diminta. Tunggu QR baru.');
-      loadStatus();
-    } catch (err) {
-      showToast('Gagal reset koneksi.', true);
-    }
+    await resetWaConnection({ withConfirm: true });
   });
 }
 
@@ -192,5 +282,10 @@ if (saveSettingsBtn) {
 
 ((async function init() {
   await initNav('ai-settings');
+  bindWaCardSwipeActions();
+  initPullToRefresh({
+    key: 'ai-settings',
+    onRefresh: refreshAll
+  });
   refreshAll();
 })());

@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
-  <body class="app-shell">
+  <body class="app-shell panel-page ai-settings-page">
     <div class="app-bg"></div>
     <div class="app-layout">
       <aside class="app-sidebar">
@@ -117,7 +117,16 @@
               <p>Ganti nomor admin dan kelola koneksi bot WhatsApp tanpa terminal.</p>
             </div>
             <div class="page-actions">
-              <button class="ghost" id="refresh-btn">Refresh</button>
+              <button
+                class="ghost action-icon-btn"
+                id="refresh-btn"
+                type="button"
+                aria-label="Refresh konfigurasi"
+                title="Refresh konfigurasi"
+              >
+                <span class="action-icon-symbol" aria-hidden="true">&#x21bb;</span>
+                <span class="action-icon-text">Refresh</span>
+              </button>
             </div>
           </section>
 
@@ -186,7 +195,7 @@
               </div>
             </div>
 
-            <div class="card">
+            <div class="card" id="wa-connection-card">
               <div class="card-head">
                 <div>
                   <h2>Koneksi WhatsApp bot</h2>
@@ -219,10 +228,31 @@
 
                 <div class="mt-3 text-xs text-slate-500 dark:text-slate-400" id="qr-updated"></div>
 
-                <div class="mt-4 flex flex-wrap items-center gap-3">
-                  <button class="ghost" id="refresh-qr" type="button">Reload QR</button>
-                  <button class="danger" id="reset-wa" type="button">Reset koneksi</button>
+                <div class="mt-4 flex flex-wrap items-center gap-3 ai-wa-actions">
+                  <button
+                    class="ghost action-icon-btn"
+                    id="refresh-qr"
+                    type="button"
+                    aria-label="Reload QR"
+                    title="Reload QR"
+                  >
+                    <span class="action-icon-symbol" aria-hidden="true">&#x21bb;</span>
+                    <span class="action-icon-text">Reload QR</span>
+                  </button>
+                  <button
+                    class="danger action-icon-btn action-icon-btn-primary"
+                    id="reset-wa"
+                    type="button"
+                    aria-label="Reset koneksi WhatsApp"
+                    title="Reset koneksi WhatsApp"
+                  >
+                    <span class="action-icon-symbol" aria-hidden="true">&#x2715;</span>
+                    <span class="action-icon-text">Reset koneksi</span>
+                  </button>
                 </div>
+                <p class="mt-3 text-xs text-slate-500 dark:text-slate-400 ai-wa-swipe-hint">
+                  Swipe kartu: kanan untuk reload QR, kiri untuk reset.
+                </p>
                 <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
                   Reset akan memutus koneksi dan memunculkan QR baru.
                 </p>
@@ -237,3 +267,4 @@
     <script type="module" src="/js/ai-settings.js"></script>
   </body>
 </html>
+

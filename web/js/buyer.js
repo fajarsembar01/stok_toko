@@ -2,8 +2,11 @@ import {
   fetchJson,
   formatCurrency,
   formatNumber,
+  initPullToRefresh,
   initThemeToggle,
+  showUndoSnack,
   showToast,
+  triggerSwipeFeedback,
   toNumber
 } from './shared.js';
 
@@ -74,7 +77,16 @@ function renderProducts() {
             <p class="product-meta">${stockLabel}</p>
           </div>
           <div class="qty-control">
-            <button type="button" class="ghost" data-action="dec" ${disabled ? 'disabled' : ''}>-</button>
+            <button
+              type="button"
+              class="icon-btn"
+              data-action="dec"
+              aria-label="Kurangi jumlah"
+              title="Kurangi jumlah"
+              ${disabled ? 'disabled' : ''}
+            >
+              <span class="icon-symbol" aria-hidden="true">−</span>
+            </button>
             <input
               type="number"
               min="0"
@@ -83,7 +95,16 @@ function renderProducts() {
               value="${qty}"
               ${disabled ? 'disabled' : ''}
             />
-            <button type="button" class="ghost" data-action="inc" ${disabled ? 'disabled' : ''}>+</button>
+            <button
+              type="button"
+              class="icon-btn"
+              data-action="inc"
+              aria-label="Tambah jumlah"
+              title="Tambah jumlah"
+              ${disabled ? 'disabled' : ''}
+            >
+              <span class="icon-symbol" aria-hidden="true">+</span>
+            </button>
           </div>
         </article>
       `;
@@ -158,6 +179,142 @@ function setQty(productId, qty) {
   updateSummary();
 }
 
+function getProductById(productId) {
+  return state.products.find((item) => item.id === Number(productId)) || null;
+}
+
+function getProductCard(productId) {
+  return productGrid.querySelector(`.product-card[data-id="${productId}"]`);
+}
+
+function changeQty(productId, delta, { withUndo = false, fallbackCard = null } = {}) {
+  const id = Number(productId);
+  if (!Number.isFinite(id) || id <= 0) return;
+  const product = getProductById(id);
+  if (!product || !Number.isFinite(Number(product.sell_price)) || Number(product.sell_price) <= 0) {
+    return;
+  }
+
+  const previousQty = state.cart.get(id) || 0;
+  const nextQty = Math.max(0, previousQty + Number(delta || 0));
+  if (previousQty === nextQty) return;
+
+  setQty(id, nextQty);
+  const visual = getProductCard(id) || fallbackCard;
+  triggerSwipeFeedback(visual, delta > 0 ? 'success' : 'danger');
+
+  if (!withUndo) return;
+  showUndoSnack({
+    message: delta > 0 ? `${product.name} ditambah.` : `${product.name} dikurangi.`,
+    actionLabel: 'Urungkan',
+    duration: 3200,
+    onUndo: () => {
+      setQty(id, previousQty);
+      const undoVisual = getProductCard(id) || fallbackCard;
+      triggerSwipeFeedback(undoVisual, 'success');
+    }
+  });
+}
+
+function bindBuyerSwipeQty() {
+  if (!productGrid || productGrid.dataset.swipeBound === 'true') return;
+  productGrid.dataset.swipeBound = 'true';
+
+  const swipe = {
+    card: null,
+    startX: 0,
+    startY: 0,
+    offsetX: 0,
+    dragging: false
+  };
+
+  const resolveCard = (target) => {
+    if (!(target instanceof Element)) return null;
+    return target.closest('.product-card[data-id]');
+  };
+
+  const releaseCard = () => {
+    if (!swipe.card) return;
+    const card = swipe.card;
+    card.classList.remove('is-swiping');
+    card.style.transition = 'transform 150ms ease';
+    card.style.transform = 'translateX(0px)';
+    window.setTimeout(() => {
+      card.style.transition = '';
+      card.style.transform = '';
+    }, 170);
+  };
+
+  productGrid.addEventListener(
+    'touchstart',
+    (event) => {
+      if (event.touches.length !== 1) return;
+      const targetEl = event.target;
+      if (
+        targetEl instanceof Element &&
+        targetEl.closest('input, button, textarea, select, a')
+      ) {
+        return;
+      }
+      const card = resolveCard(targetEl);
+      if (!card) return;
+      swipe.card = card;
+      swipe.startX = event.touches[0].clientX;
+      swipe.startY = event.touches[0].clientY;
+      swipe.offsetX = 0;
+      swipe.dragging = false;
+    },
+    { passive: true }
+  );
+
+  productGrid.addEventListener(
+    'touchmove',
+    (event) => {
+      if (!swipe.card || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - swipe.startX;
+      const deltaY = touch.clientY - swipe.startY;
+
+      if (!swipe.dragging) {
+        if (Math.abs(deltaX) < 8 && Math.abs(deltaY) < 8) return;
+        if (Math.abs(deltaX) <= Math.abs(deltaY) + 6) {
+          swipe.card = null;
+          return;
+        }
+        swipe.dragging = true;
+        swipe.card.classList.add('is-swiping');
+        swipe.card.style.transition = 'none';
+      }
+
+      swipe.offsetX = Math.max(-74, Math.min(74, deltaX));
+      swipe.card.style.transform = `translateX(${swipe.offsetX}px)`;
+      event.preventDefault();
+    },
+    { passive: false }
+  );
+
+  const endSwipe = () => {
+    if (!swipe.card) return;
+    const card = swipe.card;
+    const id = Number(card.dataset.id);
+    const shouldInc = swipe.offsetX >= 56;
+    const shouldDec = swipe.offsetX <= -56;
+
+    releaseCard();
+    swipe.card = null;
+    swipe.offsetX = 0;
+    swipe.dragging = false;
+
+    if (!Number.isFinite(id) || id <= 0) return;
+    if (!shouldInc && !shouldDec) return;
+
+    changeQty(id, shouldInc ? 1 : -1, { withUndo: true, fallbackCard: card });
+  };
+
+  productGrid.addEventListener('touchend', endSwipe);
+  productGrid.addEventListener('touchcancel', endSwipe);
+}
+
 productGrid.addEventListener('click', (event) => {
   const action = event.target?.dataset?.action;
   if (!action) return;
@@ -166,12 +323,11 @@ productGrid.addEventListener('click', (event) => {
   const productId = Number(card.dataset.id);
   if (!Number.isFinite(productId)) return;
 
-  const current = state.cart.get(productId) || 0;
   if (action === 'inc') {
-    setQty(productId, current + 1);
+    changeQty(productId, 1, { withUndo: false, fallbackCard: card });
   }
   if (action === 'dec') {
-    setQty(productId, current - 1);
+    changeQty(productId, -1, { withUndo: false, fallbackCard: card });
   }
 });
 
@@ -249,4 +405,9 @@ async function fetchProducts() {
 
 state.storeKey = getStoreParam();
 initThemeToggle();
+bindBuyerSwipeQty();
+initPullToRefresh({
+  key: 'buyer',
+  onRefresh: fetchProducts
+});
 fetchProducts();

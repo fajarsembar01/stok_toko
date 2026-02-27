@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
-  <body class="app-shell">
+  <body class="app-shell panel-page products-page">
     <div class="app-bg"></div>
     <div class="app-layout">
       <aside class="app-sidebar">
@@ -39,7 +39,7 @@
       <div class="flex-1">
         <header class="topbar">
           <div class="topbar-inner">
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 topbar-identity">
               <button
                 class="mobile-toggle"
                 id="menu-toggle"
@@ -60,10 +60,10 @@
               </div>
             </div>
             <div class="topbar-actions">
-              <div class="control-group">
+              <div class="control-group products-store-group">
                 <select id="store-select" class="select select-compact" aria-label="Pilih toko"></select>
               </div>
-              <div class="account">
+              <div class="account products-account">
                 <button
                   class="account-toggle"
                   id="account-toggle"
@@ -97,6 +97,14 @@
               <div class="font-display text-lg font-semibold">Stock Pilot</div>
             </div>
           </div>
+          <div class="mobile-store-wrap">
+            <div class="mobile-store-label">Toko aktif</div>
+            <select
+              id="mobile-store-select"
+              class="select mobile-store-select"
+              aria-label="Pilih toko aktif"
+            ></select>
+          </div>
           <nav class="nav-links mt-6">
             <a class="nav-link" href="/dashboard" data-page="dashboard">Dashboard</a>
             <a class="nav-link" href="/products" data-page="products">Produk</a>
@@ -113,12 +121,25 @@
         <main class="page">
           <section class="products-grid form-hidden" id="products-grid">
             <div class="card hidden" id="create-card">
-              <div class="card-head">
+              <div class="card-head create-card-head">
                 <div>
                   <h2>Tambah barang</h2>
-                  <p>Harga jual default dipakai saat transaksi keluar.</p>
+                  <p>Sekali simpan: barang + stok awal (opsional).</p>
                 </div>
-                <div class="badge badge-accent">Create</div>
+                <div class="create-card-actions">
+                  <div class="badge badge-accent">Create</div>
+                  <button
+                    class="ghost create-close-btn"
+                    id="close-create"
+                    data-action="close-create"
+                    type="button"
+                    aria-label="Tutup form tambah barang"
+                    title="Tutup form tambah barang"
+                  >
+                    &times;
+                    <span class="sr-only">Tutup form tambah barang</span>
+                  </button>
+                </div>
               </div>
               <div class="card-body">
                 <form id="create-form" class="form-stack">
@@ -190,6 +211,18 @@
                     />
                   </label>
                   <label class="space-y-2">
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Stok awal</span>
+                    <input
+                      class="input"
+                      name="initial_stock"
+                      placeholder="0"
+                      inputmode="decimal"
+                    />
+                    <span class="text-xs text-slate-500 dark:text-slate-400">
+                      Isi jika ingin stok langsung masuk saat barang dibuat.
+                    </span>
+                  </label>
+                  <label class="space-y-2">
                     <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Harga jual default</span>
                     <input
                       class="input"
@@ -215,60 +248,197 @@
               </div>
             </div>
 
-            <div class="card">
-              <div class="card-head">
+            <div class="card" id="products-list-card">
+              <div class="card-head products-list-head">
                 <div>
                   <h2>Daftar barang</h2>
-                  <p>Klik baris untuk edit detail, harga, atau status aktif.</p>
+                  <p>Pakai ikon untuk detail dan tambah stok.</p>
                 </div>
-                <div class="filter-bar">
-                  <button
-                    class="ghost h-10 w-10 p-0 text-lg"
-                    id="refresh-btn"
-                    type="button"
-                    aria-label="Refresh"
-                    title="Refresh"
-                  >
-                    &#x21bb;
-                  </button>
-                  <input
-                    id="search-input"
-                    class="input input-compact flex-1 min-w-0"
-                    placeholder="Cari"
-                  />
-                  <select
-                    id="filter-category"
-                    class="select select-compact-tight"
-                    aria-label="Kategori"
-                    title="Filter kategori"
-                  >
-                    <option value="">Kategori</option>
-                  </select>
-                  <label
-                    class="inline-flex shrink-0 items-center gap-2 text-xs text-slate-600 dark:text-slate-300"
-                    title="Tampilkan nonaktif"
-                  >
-                    <input type="checkbox" id="toggle-inactive" />
-                    Nonaktif
-                  </label>
+                <div class="products-head-controls">
+                  <div class="filter-panel">
+                    <div class="filter-bar">
+                      <div class="filter-search-wrap">
+                        <span class="filter-search-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" focusable="false">
+                            <path
+                              d="M21 21l-4.35-4.35M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="1.8"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            ></path>
+                          </svg>
+                        </span>
+                        <input
+                          id="search-input"
+                          type="search"
+                          class="input input-compact min-w-0 filter-search"
+                          placeholder="Cari produk"
+                          aria-label="Cari produk"
+                          autocomplete="off"
+                        />
+                        <button
+                          class="filter-search-clear hidden"
+                          id="search-clear"
+                          type="button"
+                          aria-label="Hapus pencarian"
+                          title="Hapus pencarian"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                      <button
+                        class="icon-btn filter-panel-toggle"
+                        id="filter-toggle-btn"
+                        type="button"
+                        aria-label="Tampilkan filter dan urutan"
+                        title="Tampilkan filter dan urutan"
+                        aria-controls="filter-advanced"
+                        aria-expanded="false"
+                      >
+                        <svg class="icon-symbol" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                          <path
+                            d="M4 6h16M7 12h10M10 18h4"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          ></path>
+                        </svg>
+                        <span class="sr-only">Filter</span>
+                      </button>
+                    </div>
+                    <div class="filter-advanced hidden" id="filter-advanced">
+                      <select
+                        id="filter-category"
+                        class="select select-compact-tight filter-select"
+                        aria-label="Kategori"
+                        title="Filter kategori"
+                      >
+                        <option value="">Kategori</option>
+                      </select>
+                      <button
+                        class="icon-btn filter-inactive-btn"
+                        id="toggle-inactive"
+                        type="button"
+                        aria-label="Tampilkan produk nonaktif"
+                        title="Tampilkan produk nonaktif"
+                        aria-pressed="false"
+                      >
+                        <svg class="icon-symbol" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                          <path
+                            d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.6A10.5 10.5 0 0 1 12 5.4c6.5 0 10 6.6 10 6.6a17.3 17.3 0 0 1-4.1 4.8M6.1 8.2A17.9 17.9 0 0 0 2 12s3.5 6.6 10 6.6a10.7 10.7 0 0 0 3.2-.5"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          ></path>
+                        </svg>
+                        <span class="sr-only">Nonaktif</span>
+                      </button>
+                      <button
+                        class="icon-btn filter-refresh"
+                        id="refresh-btn"
+                        type="button"
+                        aria-label="Refresh"
+                        title="Refresh"
+                      >
+                        <span class="icon-symbol" aria-hidden="true">&#x21bb;</span>
+                        <span class="sr-only">Refresh</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="sort-chip-row" id="sort-chip-row" role="toolbar" aria-label="Urutkan produk">
+                    <button
+                      class="icon-btn sort-chip active"
+                      id="sort-name-btn"
+                      type="button"
+                      data-sort-key="name"
+                      aria-label="Urutkan nama"
+                      title="Urutkan nama"
+                      aria-pressed="true"
+                    >
+                      <span class="sort-letter" aria-hidden="true">A</span>
+                    </button>
+                    <button
+                      class="icon-btn sort-chip"
+                      id="sort-stock-btn"
+                      type="button"
+                      data-sort-key="stock"
+                      aria-label="Urutkan stok"
+                      title="Urutkan stok"
+                      aria-pressed="false"
+                    >
+                      <svg class="icon-symbol" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path
+                          d="M4 7.5 12 4l8 3.5-8 3.5L4 7.5Zm0 4.5 8 3.5 8-3.5M4 16.5 12 20l8-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        ></path>
+                      </svg>
+                    </button>
+                    <button
+                      class="icon-btn sort-chip"
+                      id="sort-buy-btn"
+                      type="button"
+                      data-sort-key="buy"
+                      aria-label="Urutkan harga beli"
+                      title="Urutkan harga beli"
+                      aria-pressed="false"
+                    >
+                      <svg class="icon-symbol" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path
+                          d="M4.5 8h15M6.5 8l1 10h9l1-10M9 8V6.8A2.2 2.2 0 0 1 11.2 4.6h1.6A2.2 2.2 0 0 1 15 6.8V8"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        ></path>
+                      </svg>
+                    </button>
+                    <button
+                      class="icon-btn sort-direction-btn"
+                      id="sort-direction-btn"
+                      type="button"
+                      aria-label="Urutan naik"
+                      title="Urutan naik"
+                    >
+                      <svg class="icon-symbol" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path
+                          d="M12 6v12M12 6l-4 4M12 6l4 4"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        ></path>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div class="card-body">
-                <div class="table-wrap table-wrap-compact">
+              <div class="card-body products-list-body">
+                <div class="products-mobile-list" id="product-mobile-list"></div>
+                <div class="table-wrap table-wrap-compact products-table-wrap">
                   <table class="table table-compact">
                     <thead>
                       <tr>
                         <th class="img-col">Img</th>
                         <th>Barang</th>
                         <th class="optional-col">Kategori</th>
-                        <th>Stok</th>
+                        <th class="col-stock">Stok</th>
                         <th class="optional-col">Harga beli</th>
-                        <th>Harga jual</th>
+                        <th class="sell-col">Harga jual</th>
                         <th class="optional-col">Revenue</th>
                         <th class="optional-col">Profit</th>
-                        <th class="optional-col">Modal</th>
-                        <th class="optional-col">Status</th>
-                        <th>Aksi</th>
+                        <th class="col-actions">Aksi</th>
                       </tr>
                     </thead>
                     <tbody id="product-rows"></tbody>
@@ -293,14 +463,25 @@
       </div>
     </div>
 
+    <div class="create-backdrop hidden" id="create-backdrop"></div>
     <div class="drawer-backdrop hidden" id="drawer-backdrop"></div>
     <aside class="drawer" id="drawer">
+      <div class="sheet-grab" aria-hidden="true"></div>
       <div class="drawer-header">
         <div>
           <p class="eyebrow">Detail barang</p>
           <h3 id="drawer-title">Edit barang</h3>
         </div>
-        <button class="ghost" id="close-drawer">Close</button>
+        <button
+          class="ghost drawer-close-btn"
+          id="close-drawer"
+          type="button"
+          aria-label="Tutup detail"
+          title="Tutup detail"
+        >
+          &times;
+          <span class="sr-only">Tutup detail</span>
+        </button>
       </div>
       <div class="drawer-summary" id="drawer-summary"></div>
       <form id="edit-form" class="form-stack drawer-form px-6 py-6">
@@ -411,19 +592,19 @@
 
     <div class="modal hidden" id="quick-modal" aria-hidden="true">
       <div class="modal-backdrop" data-action="close"></div>
-      <div class="modal-card card">
-        <div class="card-head">
+      <div class="modal-card card quick-modal-card">
+        <div class="sheet-grab quick-grab" aria-hidden="true"></div>
+        <div class="card-head quick-head">
           <div>
             <p class="eyebrow">Tambah stok</p>
             <h2 id="quick-product-name">Barang</h2>
           </div>
-          <button class="ghost" type="button" data-action="close">Close</button>
         </div>
-        <div class="card-body space-y-4">
-          <div id="quick-product-meta" class="info-grid">
+        <div class="card-body space-y-4 quick-body">
+          <div id="quick-product-meta" class="info-grid quick-meta-grid">
             <div>Pilih barang untuk melihat detail.</div>
           </div>
-          <form id="quick-form" class="form-stack">
+          <form id="quick-form" class="form-stack quick-form">
             <input type="hidden" name="product_id" />
             <label class="space-y-2">
               <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Jenis transaksi</span>
@@ -462,4 +643,5 @@
     <script type="module" src="/js/products.js"></script>
   </body>
 </html>
+
 

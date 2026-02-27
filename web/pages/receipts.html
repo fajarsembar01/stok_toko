@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
-  <body class="app-shell">
+  <body class="app-shell panel-page receipts-page">
     <div class="app-bg"></div>
     <div class="app-layout">
       <aside class="app-sidebar">
@@ -117,8 +117,26 @@
               <p>Susun belanja, pilih metode bayar, lalu cetak struk.</p>
             </div>
             <div class="page-actions">
-              <button class="ghost" id="reset-btn" type="button">Reset</button>
-              <button class="primary" id="print-btn" type="button">Print</button>
+              <button
+                class="ghost action-icon-btn"
+                id="reset-btn"
+                type="button"
+                aria-label="Reset belanja"
+                title="Reset belanja"
+              >
+                <span class="action-icon-symbol" aria-hidden="true">&#x21bb;</span>
+                <span class="action-icon-text">Reset</span>
+              </button>
+              <button
+                class="primary action-icon-btn action-icon-btn-primary"
+                id="print-btn"
+                type="button"
+                aria-label="Print struk"
+                title="Print struk"
+              >
+                <span class="action-icon-symbol" aria-hidden="true">&#x2399;</span>
+                <span class="action-icon-text">Print</span>
+              </button>
             </div>
           </section>
 
@@ -177,7 +195,7 @@
                 </form>
 
                 <div class="table-wrap table-wrap-compact">
-                  <table class="table table-compact">
+                  <table class="table table-compact receipt-items-table">
                     <thead>
                       <tr>
                         <th>Barang</th>
@@ -295,4 +313,5 @@
     <script type="module" src="/js/receipts.js"></script>
   </body>
 </html>
+
 

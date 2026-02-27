@@ -6,8 +6,11 @@ import {
   formatNumber,
   getActiveStoreId,
   initCurrencyInputs,
+  initPullToRefresh,
   initNav,
+  showUndoSnack,
   showToast,
+  triggerSwipeFeedback,
   toNumber
 } from './shared.js';
 
@@ -39,6 +42,14 @@ const receiptPayment = document.getElementById('receipt-payment');
 const receiptHelper = document.getElementById('receipt-helper');
 const printBtn = document.getElementById('print-btn');
 const resetBtn = document.getElementById('reset-btn');
+const queryParams = new URLSearchParams(window.location.search);
+const receiptRowSwipe = {
+  tracking: false,
+  row: null,
+  startX: 0,
+  startY: 0,
+  offsetX: 0
+};
 
 const state = {
   products: [],
@@ -184,12 +195,12 @@ function renderItemsTable() {
       const lineTotal = item.qty * item.price;
       const unitLabel = item.unit ? escapeHtml(item.unit) : '-';
       return `
-        <tr>
-          <td>
+        <tr data-row-index="${index}">
+          <td data-label="Barang">
             <div class="cell-title">${escapeHtml(item.name)}</div>
             <div class="cell-meta">${unitLabel}</div>
           </td>
-          <td>
+          <td data-label="Qty">
             <input
               class="input input-compact w-16"
               data-index="${index}"
@@ -200,7 +211,7 @@ function renderItemsTable() {
               value="${item.qty}"
             />
           </td>
-          <td>
+          <td data-label="Harga">
             <input
               class="input input-compact w-24"
               data-index="${index}"
@@ -213,10 +224,27 @@ function renderItemsTable() {
               value="${item.price}"
             />
           </td>
-          <td>${formatCurrency(lineTotal)}</td>
-          <td>
-            <button class="ghost" type="button" data-action="remove" data-index="${index}">
-              Hapus
+          <td data-label="Total">${formatCurrency(lineTotal)}</td>
+          <td data-label="Aksi">
+            <button
+              class="ghost table-icon-btn"
+              type="button"
+              data-action="remove"
+              data-index="${index}"
+              aria-label="Hapus item"
+              title="Hapus item"
+            >
+              <svg class="action-icon-symbol" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path
+                  d="M4 7h16M9 7V5h6v2M8 7v12m8-12v12M6 7l1 13h10l1-13"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></path>
+              </svg>
+              <span class="sr-only">Hapus</span>
             </button>
           </td>
         </tr>
@@ -224,8 +252,94 @@ function renderItemsTable() {
     })
     .join('');
 
-  itemRows.innerHTML = rows || '<tr><td colspan="5">Belum ada item.</td></tr>';
+  itemRows.innerHTML = rows || '<tr class="receipt-row-empty"><td colspan="5">Belum ada item.</td></tr>';
   initCurrencyInputs(itemRows);
+}
+
+function bindReceiptRowSwipeToRemove() {
+  if (!itemRows || itemRows.dataset.swipeBound === 'true') return;
+  itemRows.dataset.swipeBound = 'true';
+  const mobileQuery = window.matchMedia('(max-width: 1023px)');
+
+  itemRows.addEventListener(
+    'touchstart',
+    (event) => {
+      if (!mobileQuery.matches) return;
+      const touch = event.touches?.[0];
+      if (!touch) return;
+      const row = event.target.closest('tr[data-row-index]');
+      if (!row) return;
+      receiptRowSwipe.tracking = true;
+      receiptRowSwipe.row = row;
+      receiptRowSwipe.startX = touch.clientX;
+      receiptRowSwipe.startY = touch.clientY;
+      receiptRowSwipe.offsetX = 0;
+      row.style.transition = 'none';
+      row.style.willChange = 'transform';
+    },
+    { passive: true }
+  );
+
+  itemRows.addEventListener(
+    'touchmove',
+    (event) => {
+      if (!receiptRowSwipe.tracking || !receiptRowSwipe.row) return;
+      const touch = event.touches?.[0];
+      if (!touch) return;
+      const deltaX = touch.clientX - receiptRowSwipe.startX;
+      const deltaY = touch.clientY - receiptRowSwipe.startY;
+      if (Math.abs(deltaY) > Math.abs(deltaX)) return;
+      event.preventDefault();
+      receiptRowSwipe.offsetX = Math.max(-108, Math.min(0, deltaX));
+      receiptRowSwipe.row.style.transform = `translateX(${receiptRowSwipe.offsetX}px)`;
+    },
+    { passive: false }
+  );
+
+  const endSwipe = () => {
+    if (!receiptRowSwipe.tracking || !receiptRowSwipe.row) return;
+    const row = receiptRowSwipe.row;
+    const shouldDelete = receiptRowSwipe.offsetX <= -72;
+    const index = Number(row.dataset.rowIndex);
+
+    receiptRowSwipe.tracking = false;
+    receiptRowSwipe.row = null;
+    receiptRowSwipe.offsetX = 0;
+    row.style.willChange = '';
+    row.style.transition = 'transform 160ms ease';
+    row.style.transform = shouldDelete ? 'translateX(-112%)' : 'translateX(0px)';
+
+    if (shouldDelete && Number.isFinite(index) && state.items[index]) {
+      const removedItem = { ...state.items[index] };
+      triggerSwipeFeedback(row, 'danger');
+      window.setTimeout(() => {
+        state.items.splice(index, 1);
+        markDirty();
+        renderItemsTable();
+        renderReceipt();
+        showUndoSnack({
+          message: `${removedItem.name} dihapus dari struk.`,
+          actionLabel: 'Batal',
+          onUndo: () => {
+            state.items.splice(index, 0, removedItem);
+            markDirty();
+            renderItemsTable();
+            renderReceipt();
+            showToast('Item dikembalikan.');
+          }
+        });
+      }, 140);
+      return;
+    }
+
+    window.setTimeout(() => {
+      row.style.transition = '';
+      row.style.transform = '';
+    }, 170);
+  };
+
+  itemRows.addEventListener('touchend', endSwipe);
+  itemRows.addEventListener('touchcancel', endSwipe);
 }
 
 function renderReceiptItems() {
@@ -502,7 +616,13 @@ if (cashReceivedInput) {
 function setPrintLoading(loading) {
   if (!printBtn) return;
   printBtn.disabled = loading;
-  printBtn.textContent = loading ? 'Menyimpan...' : 'Print';
+  printBtn.classList.toggle('is-loading', loading);
+  const textNode = printBtn.querySelector('.action-icon-text');
+  if (textNode) {
+    textNode.textContent = loading ? 'Menyimpan...' : 'Print';
+  } else {
+    printBtn.textContent = loading ? 'Menyimpan...' : 'Print';
+  }
 }
 
 async function saveReceiptTransactions() {
@@ -581,11 +701,27 @@ window.addEventListener('store:change', async () => {
 
 (async function init() {
   await initNav('receipts');
+  initPullToRefresh({
+    key: 'receipts',
+    onRefresh: async () => {
+      await fetchStore();
+      await fetchProducts();
+      renderReceipt();
+    }
+  });
   await fetchStore();
   await fetchProducts();
   state.receiptId = generateReceiptId();
   loadHelpers();
   renderItemsTable();
+  bindReceiptRowSwipeToRemove();
   updatePaymentHelper();
   renderReceipt();
+  const quickParam = String(queryParams.get('quick') || '').trim().toLowerCase();
+  if (quickParam === 'focus' && productInput instanceof HTMLInputElement) {
+    window.setTimeout(() => {
+      productInput.focus();
+      productInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 180);
+  }
 })();

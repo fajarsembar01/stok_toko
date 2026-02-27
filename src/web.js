@@ -1538,17 +1538,20 @@ app.delete('/api/stores/:id', requireAdmin, async (req, res) => {
   }
 });
 
-  app.post('/api/products', async (req, res) => {
-    const name = String(req.body?.name || '').trim();
-    const unit = String(req.body?.unit || '').trim() || null;
-    const category = String(req.body?.category || '').trim() || null;
-    const imageData = String(req.body?.image_data || '').trim();
-    const imageUrlRaw = String(req.body?.image_url || '').trim();
-    let imageUrl = imageUrlRaw || null;
-    const note = String(req.body?.note || '').trim() || null;
-    const defaultBuyPrice = coerceNumber(req.body?.default_buy_price);
-    const defaultSellPrice = coerceNumber(req.body?.default_sell_price);
-    const payableMode = toPayableMode(req.body?.payable_mode, 'credit');
+app.post('/api/products', async (req, res) => {
+  const name = String(req.body?.name || '').trim();
+  const unit = String(req.body?.unit || '').trim() || null;
+  const category = String(req.body?.category || '').trim() || null;
+  const imageData = String(req.body?.image_data || '').trim();
+  const imageUrlRaw = String(req.body?.image_url || '').trim();
+  let imageUrl = imageUrlRaw || null;
+  const note = String(req.body?.note || '').trim() || null;
+  const defaultBuyPrice = coerceNumber(req.body?.default_buy_price);
+  const defaultSellPrice = coerceNumber(req.body?.default_sell_price);
+  const payableMode = toPayableMode(req.body?.payable_mode, 'credit');
+  const initialStockRaw = String(req.body?.initial_stock ?? '').trim();
+  const hasInitialStockInput = initialStockRaw !== '';
+  const initialStock = hasInitialStockInput ? coerceNumber(initialStockRaw) : null;
   const storeId = await resolveStoreId(req);
 
   if (!name) {
@@ -1566,13 +1569,28 @@ app.delete('/api/stores/:id', requireAdmin, async (req, res) => {
     return;
   }
 
+  if (hasInitialStockInput && (initialStock === null || initialStock < 0)) {
+    res.status(400).json({ error: 'invalid_initial_stock' });
+    return;
+  }
+
   const nameKey = normalizeItemKey(name);
+  const shouldRecordInitialStock = Number.isFinite(initialStock) && initialStock > 0;
 
   try {
-      if (imageData) {
-        imageUrl = await saveProductImage(imageData);
-      }
-      const result = await dbPool.query(
+    if (imageData) {
+      imageUrl = await saveProductImage(imageData);
+    }
+
+    const client = await dbPool.connect();
+    let product = null;
+    let initialStockRecorded = false;
+    let initialStockTransactionId = null;
+
+    try {
+      await client.query('BEGIN');
+
+      const result = await client.query(
         `
         INSERT INTO ${PRODUCTS_TABLE}
           (name, name_key, store_id, unit, category, image_url, default_buy_price, default_sell_price, payable_mode, note, is_active, updated_at)
@@ -1587,10 +1605,10 @@ app.delete('/api/stores/:id', requireAdmin, async (req, res) => {
             payable_mode = COALESCE(EXCLUDED.payable_mode, ${PRODUCTS_TABLE}.payable_mode),
             note = COALESCE(EXCLUDED.note, ${PRODUCTS_TABLE}.note),
             is_active = true,
-          updated_at = now()
-      RETURNING *
-      `,
-      [
+            updated_at = now()
+        RETURNING *, (xmax = 0) AS inserted
+        `,
+        [
           name,
           nameKey,
           storeId,
@@ -1601,10 +1619,88 @@ app.delete('/api/stores/:id', requireAdmin, async (req, res) => {
           defaultSellPrice,
           payableMode,
           note
-      ]
-    );
+        ]
+      );
 
-    const product = result.rows?.[0];
+      product = result.rows?.[0] || null;
+      if (!product) {
+        throw new Error('product_failed');
+      }
+
+      if (shouldRecordInitialStock) {
+        const buyPriceForInitialStock = pickPrice(
+          defaultBuyPrice,
+          product.last_buy_price,
+          product.default_buy_price
+        );
+        if (
+          buyPriceForInitialStock == null ||
+          Number.isNaN(buyPriceForInitialStock) ||
+          buyPriceForInitialStock <= 0
+        ) {
+          const missingBuyError = new Error('missing_buy_for_initial_stock');
+          missingBuyError.statusCode = 400;
+          throw missingBuyError;
+        }
+
+        const sellPriceForInitialStock = pickPrice(
+          defaultSellPrice,
+          product.last_sell_price,
+          product.default_sell_price
+        );
+        const totalInitialStock = buyPriceForInitialStock * initialStock;
+        const initialStockNote = note ? `Stok awal: ${note}` : 'Stok awal produk';
+
+        const txResult = await client.query(
+          `
+          INSERT INTO ${DB_TABLE}
+            (type, product_id, store_id, item, qty, unit_price, total,
+             buy_price, sell_price, cost_price, cost_total, note, sender, raw)
+          VALUES ('IN',$1,$2,$3,$4,$5,$6,$5,$7,$5,$6,$8,$9,'web')
+          RETURNING id
+          `,
+          [
+            product.id,
+            product.store_id ?? storeId ?? null,
+            product.name,
+            initialStock,
+            buyPriceForInitialStock,
+            totalInitialStock,
+            sellPriceForInitialStock,
+            initialStockNote,
+            req.session.user?.username || 'web'
+          ]
+        );
+        initialStockTransactionId = txResult.rows?.[0]?.id || null;
+
+        await client.query(
+          `
+          UPDATE ${PRODUCTS_TABLE}
+          SET last_buy_price = COALESCE($2, last_buy_price),
+              default_buy_price = COALESCE(default_buy_price, $2),
+              last_sell_price = COALESCE($3, last_sell_price),
+              default_sell_price = COALESCE(default_sell_price, $3),
+              updated_at = now()
+          WHERE id = $1
+          `,
+          [product.id, buyPriceForInitialStock, sellPriceForInitialStock]
+        );
+
+        initialStockRecorded = true;
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        console.error('Rollback failed while creating product', rollbackErr);
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+
     if (product) {
       await recordAudit({
         userId: req.session.user?.id,
@@ -1616,7 +1712,28 @@ app.delete('/api/stores/:id', requireAdmin, async (req, res) => {
       });
     }
 
-    res.json({ id: product?.id });
+    if (initialStockTransactionId) {
+      await recordAudit({
+        userId: req.session.user?.id,
+        action: 'CREATE',
+        entity: 'transaction',
+        entityId: initialStockTransactionId,
+        afterData: {
+          type: 'IN',
+          product_id: product?.id,
+          item: product?.name,
+          qty: initialStock,
+          note: 'Stok awal produk',
+          store_id: product?.store_id ?? storeId
+        },
+        req
+      });
+    }
+
+    res.json({
+      id: product?.id,
+      initial_stock_recorded: initialStockRecorded
+    });
   } catch (err) {
     if (err.code === 'image_too_large') {
       res.status(400).json({ error: 'image_too_large' });
@@ -1624,6 +1741,10 @@ app.delete('/api/stores/:id', requireAdmin, async (req, res) => {
     }
     if (err.code === 'invalid_image') {
       res.status(400).json({ error: 'invalid_image' });
+      return;
+    }
+    if (err.statusCode === 400 && err.message === 'missing_buy_for_initial_stock') {
+      res.status(400).json({ error: 'missing_buy_for_initial_stock' });
       return;
     }
     console.error('Failed to create product', err);
