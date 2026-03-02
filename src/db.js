@@ -631,28 +631,27 @@ async function ensureDatabase(pool) {
     `UPDATE ${PRODUCTS_TABLE} SET updated_at = now() WHERE updated_at IS NULL`
   );
 
-  if (defaultStoreId) {
-    await pool.query(
-      `
-      INSERT INTO ${PRODUCTS_TABLE} (name, name_key, store_id)
-      SELECT DISTINCT ON (
-        COALESCE(store_id, $1::bigint),
-        LOWER(REGEXP_REPLACE(TRIM(item), '\\s+', ' ', 'g'))
-      )
-        item,
-        LOWER(REGEXP_REPLACE(TRIM(item), '\\s+', ' ', 'g')) AS name_key,
-        COALESCE(store_id, $1::bigint) AS store_id
-      FROM ${DB_TABLE}
-      WHERE item IS NOT NULL AND item <> ''
-      ORDER BY
-        COALESCE(store_id, $1::bigint),
-        LOWER(REGEXP_REPLACE(TRIM(item), '\\s+', ' ', 'g')),
-        created_at DESC
-      ON CONFLICT (store_id, name_key) DO NOTHING
-      `,
-      [defaultStoreId]
-    );
-  }
+  await pool.query(
+    `
+    INSERT INTO ${PRODUCTS_TABLE} (name, name_key, store_id)
+    SELECT DISTINCT ON (
+      store_id,
+      LOWER(REGEXP_REPLACE(TRIM(item), '\\s+', ' ', 'g'))
+    )
+      item,
+      LOWER(REGEXP_REPLACE(TRIM(item), '\\s+', ' ', 'g')) AS name_key,
+      store_id
+    FROM ${DB_TABLE}
+    WHERE item IS NOT NULL
+      AND item <> ''
+      AND store_id IS NOT NULL
+    ORDER BY
+      store_id,
+      LOWER(REGEXP_REPLACE(TRIM(item), '\\s+', ' ', 'g')),
+      created_at DESC
+    ON CONFLICT (store_id, name_key) DO NOTHING
+    `
+  );
 
   await pool.query(`
     UPDATE ${DB_TABLE} t
