@@ -1902,6 +1902,12 @@ export async function fetchJson(url, options) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const error = data?.error || 'request_failed';
+    if (error === 'missing_store') {
+      if (window.location.pathname !== '/select-store') {
+        window.location.href = '/select-store';
+      }
+      return null;
+    }
     throw new Error(error);
   }
   return data;

@@ -886,13 +886,15 @@ app.post('/api/wa/reset', requireAdmin, async (req, res) => {
 
 app.get('/api/product-categories', async (req, res) => {
   const storeId = await resolveStoreId(req);
+  if (!storeId) {
+    res.status(400).json({ error: 'missing_store' });
+    return;
+  }
   const params = [];
   const where = ["category IS NOT NULL", "category <> ''"];
 
-  if (storeId) {
-    params.push(storeId);
-    where.push(`store_id = $${params.length}`);
-  }
+  params.push(storeId);
+  where.push(`store_id = $${params.length}`);
 
   const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
@@ -1057,7 +1059,7 @@ const DEFAULT_STORE_CACHE_TTL_MS = 60000;
 
 function getSessionStoreId(req) {
   const raw = Number(req.session?.activeStoreId);
-  return Number.isFinite(raw) ? raw : null;
+  return Number.isFinite(raw) && raw > 0 ? raw : null;
 }
 
 async function getActiveStoreIdById(storeId) {
@@ -1129,7 +1131,7 @@ async function resolveStoreId(req) {
   const sessionStoreId = getSessionStoreId(req);
   if (sessionStoreId) return sessionStoreId;
 
-  return await getDefaultStoreId();
+  return null;
 }
 
 function getStoreKeyFromHost(req) {
@@ -1475,6 +1477,10 @@ app.delete('/api/stores/:id', requireAdmin, async (req, res) => {
     const search = String(req.query.search || '').trim();
     const category = String(req.query.category || '').trim();
     const storeId = await resolveStoreId(req);
+    if (!storeId) {
+      res.status(400).json({ error: 'missing_store' });
+      return;
+    }
 
   const params = [];
   const where = [];
@@ -1483,10 +1489,8 @@ app.delete('/api/stores/:id', requireAdmin, async (req, res) => {
     where.push('p.is_active = true');
   }
 
-  if (storeId) {
-    params.push(storeId);
-    where.push(`p.store_id = $${params.length}`);
-  }
+  params.push(storeId);
+  where.push(`p.store_id = $${params.length}`);
 
   if (search) {
     params.push(`%${search}%`);
@@ -1754,8 +1758,13 @@ app.post('/api/products', async (req, res) => {
 
 app.put('/api/products/:id', async (req, res) => {
   const id = Number(req.params.id);
+  const requestStoreId = await resolveStoreId(req);
   if (!Number.isFinite(id)) {
     res.status(400).json({ error: 'invalid_id' });
+    return;
+  }
+  if (!requestStoreId) {
+    res.status(400).json({ error: 'missing_store' });
     return;
   }
 
@@ -1792,6 +1801,19 @@ app.put('/api/products/:id', async (req, res) => {
     const before = beforeRes.rows?.[0];
     if (!before) {
       res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    const beforeStoreId = Number(before.store_id);
+    if (
+      Number.isFinite(beforeStoreId) &&
+      beforeStoreId > 0 &&
+      beforeStoreId !== requestStoreId
+    ) {
+      res.status(400).json({ error: 'store_mismatch' });
+      return;
+    }
+    if (Number.isFinite(storeId) && storeId !== requestStoreId) {
+      res.status(400).json({ error: 'store_mismatch' });
       return;
     }
 
@@ -1884,8 +1906,13 @@ app.put('/api/products/:id', async (req, res) => {
 
 app.delete('/api/products/:id', async (req, res) => {
   const id = Number(req.params.id);
+  const requestStoreId = await resolveStoreId(req);
   if (!Number.isFinite(id)) {
     res.status(400).json({ error: 'invalid_id' });
+    return;
+  }
+  if (!requestStoreId) {
+    res.status(400).json({ error: 'missing_store' });
     return;
   }
 
@@ -1897,6 +1924,15 @@ app.delete('/api/products/:id', async (req, res) => {
     const before = beforeRes.rows?.[0];
     if (!before) {
       res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    const beforeStoreId = Number(before.store_id);
+    if (
+      Number.isFinite(beforeStoreId) &&
+      beforeStoreId > 0 &&
+      beforeStoreId !== requestStoreId
+    ) {
+      res.status(400).json({ error: 'store_mismatch' });
       return;
     }
 
@@ -1940,14 +1976,16 @@ app.get('/api/transactions', async (req, res) => {
   const rangeTo = normalizeIsoDatetime(req.query.to);
   const dateFilter = normalizeDateOnly(req.query.date);
   const storeId = await resolveStoreId(req);
+  if (!storeId) {
+    res.status(400).json({ error: 'missing_store' });
+    return;
+  }
 
   const params = [];
   const where = [];
 
-  if (storeId) {
-    params.push(storeId);
-    where.push(`t.store_id = $${params.length}`);
-  }
+  params.push(storeId);
+  where.push(`t.store_id = $${params.length}`);
 
   if (typeFilter) {
     params.push(typeFilter);
@@ -2534,6 +2572,10 @@ app.delete('/api/users/:id', async (req, res) => {
 app.get('/api/payables/summary', async (req, res) => {
   try {
     const storeId = await resolveStoreId(req);
+    if (!storeId) {
+      res.status(400).json({ error: 'missing_store' });
+      return;
+    }
     const summary = await getPayableBalance(
       dbPool,
       storeId
@@ -2548,9 +2590,12 @@ app.get('/api/payables/summary', async (req, res) => {
 app.get('/api/payables/products', async (req, res) => {
   try {
     const storeId = await resolveStoreId(req);
-    const params = [];
-    const where = storeId ? `WHERE store_id = $1` : '';
-    if (storeId) params.push(storeId);
+    if (!storeId) {
+      res.status(400).json({ error: 'missing_store' });
+      return;
+    }
+    const params = [storeId];
+    const where = 'WHERE store_id = $1';
 
     const result = await dbPool.query(
       `
@@ -2574,9 +2619,12 @@ app.get('/api/payables/payments', async (req, res) => {
   const limit = Number(req.query.limit || 50);
   try {
     const storeId = await resolveStoreId(req);
-    const params = [];
-    const where = storeId ? `WHERE store_id = $1` : '';
-    if (storeId) params.push(storeId);
+    if (!storeId) {
+      res.status(400).json({ error: 'missing_store' });
+      return;
+    }
+    const params = [storeId];
+    const where = 'WHERE store_id = $1';
     params.push(Number.isFinite(limit) ? limit : 50);
 
     const result = await dbPool.query(
@@ -2601,6 +2649,10 @@ app.post('/api/payables/payments', async (req, res) => {
   const amount = coerceNumber(req.body?.amount);
   const note = String(req.body?.note || '').trim();
   const storeId = await resolveStoreId(req);
+  if (!storeId) {
+    res.status(400).json({ error: 'missing_store' });
+    return;
+  }
 
   if (!amount || amount <= 0) {
     res.status(400).json({ error: 'invalid_amount' });
