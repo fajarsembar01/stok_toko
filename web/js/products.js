@@ -7,7 +7,6 @@ import {
   getActiveStoreId,
   initPullToRefresh,
   initNav,
-  showUndoSnack,
   showToast,
   triggerSwipeFeedback,
   toNumber
@@ -1425,72 +1424,6 @@ function closeMobileCardSwipes(exceptCard = null) {
   });
 }
 
-function syncSelectedProductStateById(productId) {
-  const id = Number(productId);
-  if (!Number.isFinite(id)) return;
-  const updated = state.products.find((item) => item.id === id);
-  if (!updated) return;
-
-  if (state.selected?.id === id) {
-    state.selected = updated;
-    if (drawer?.classList.contains('open')) {
-      renderDrawer(updated);
-    }
-  }
-  if (state.quickProduct?.id === id && quickModal && !quickModal.classList.contains('hidden')) {
-    state.quickProduct = updated;
-    renderQuickMeta(updated);
-  }
-}
-
-function setProductActiveLocal(productId, isActive) {
-  const id = Number(productId);
-  if (!Number.isFinite(id)) return;
-  state.products = state.products.map((item) =>
-    item.id === id ? { ...item, is_active: Boolean(isActive) } : item
-  );
-  syncSelectedProductStateById(id);
-}
-
-function queueProductActiveToggle(product, card) {
-  if (!product || !Number.isFinite(Number(product.id))) return;
-  const nextActive = !Boolean(product.is_active);
-  const label = nextActive ? 'Barang diaktifkan.' : 'Barang dinonaktifkan.';
-
-  setProductActiveLocal(product.id, nextActive);
-  renderTable();
-  if (card instanceof HTMLElement) {
-    triggerSwipeFeedback(card, nextActive ? 'success' : 'danger');
-  }
-
-  showUndoSnack({
-    message: `${product.name} ${nextActive ? 'diaktifkan' : 'dinonaktifkan'}.`,
-    actionLabel: 'Batal',
-    onUndo: () => {
-      setProductActiveLocal(product.id, !nextActive);
-      renderTable();
-      showToast('Perubahan status dibatalkan.');
-    },
-    onCommit: () => {
-      (async () => {
-        try {
-          const res = await fetchJson(`/api/products/${product.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ is_active: nextActive })
-          });
-          if (res === null) return;
-          showToast(label);
-        } catch (err) {
-          setProductActiveLocal(product.id, !nextActive);
-          renderTable();
-          showToast('Gagal ubah status barang.', true);
-        }
-      })();
-    }
-  });
-}
-
 function bindMobileCardSwipeActions() {
   if (!productMobileList || productMobileList.dataset.swipeBound === 'true') return;
   productMobileList.dataset.swipeBound = 'true';
@@ -1528,7 +1461,7 @@ function bindMobileCardSwipeActions() {
       if (!surface) return;
 
       event.preventDefault();
-      const limited = Math.max(-92, Math.min(96, deltaX));
+      const limited = Math.max(-92, Math.min(0, deltaX));
       mobileCardSwipeState.offsetX = limited;
       surface.style.transition = 'none';
       surface.style.transform = `translateX(${limited}px)`;
@@ -1539,20 +1472,7 @@ function bindMobileCardSwipeActions() {
   const endSwipe = () => {
     if (!mobileCardSwipeState.tracking || !mobileCardSwipeState.card) return;
     const card = mobileCardSwipeState.card;
-    const productId = Number(card.dataset.id);
-    const product = state.products.find((item) => item.id === productId);
     const shouldOpen = mobileCardSwipeState.offsetX <= -48;
-    const shouldToggleActive = mobileCardSwipeState.offsetX >= 72;
-
-    if (shouldToggleActive && product) {
-      closeMobileCardSwipes(card);
-      setMobileCardSwipe(card, false);
-      queueProductActiveToggle(product, card);
-      mobileCardSwipeState.tracking = false;
-      mobileCardSwipeState.card = null;
-      mobileCardSwipeState.offsetX = 0;
-      return;
-    }
 
     if (shouldOpen) closeMobileCardSwipes(card);
     setMobileCardSwipe(card, shouldOpen);

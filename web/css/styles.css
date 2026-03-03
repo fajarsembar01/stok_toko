@@ -6258,7 +6258,7 @@ p {
 }
 
 .products-page .product-mobile-card::after {
-  content: '↔';
+  content: 'Swipe kiri untuk aksi';
   position: absolute;
   top: 0.45rem;
   right: 0.55rem;
